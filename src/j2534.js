@@ -13,9 +13,9 @@ function pick(obj, keys, fallback = 0) {
 }
 
 /**
- * DFirst J2534 协议接口，和命令字表一一对应。
- * 载荷：LAN 走 RDComm 0x8C；BLE 走 BLEDL，无 RDComm。
- * 编解码走 `device.codec`（按 proVersion V1/V2）。
+ * DFirst J2534 protocol API, one method per command ID.
+ * Payload path: LAN = RDComm 0x8C; BLE = BLEDL (no RDComm).
+ * Encode/decode uses `device.codec` (proVersion V1/V2).
  */
 class J2534Protocol {
   constructor(device) {
@@ -31,7 +31,7 @@ class J2534Protocol {
     return parse ? parse(data) : { error: data.readUInt32LE(0), raw: data }
   }
 
-  /** 0x00000001 OPEN — 已打开则直接读版本；按机型自动试 V1/V2 */
+  /** 0x00000001 OPEN — if already open, read version; otherwise try V1/V2 by model */
   async open() {
     if (this.device.opened) {
       return this.readVersion()
@@ -40,7 +40,7 @@ class J2534Protocol {
     return { error: 0, version }
   }
 
-  /** 0x00000002 CLOSE — 请求无参数；返回 ErrorCode */
+  /** 0x00000002 CLOSE — no request params; returns ErrorCode */
   async close() {
     const res = await this._exec(this.codec.encodeClose(), this.codec.decode.close)
     this.device.opened = false
@@ -48,12 +48,12 @@ class J2534Protocol {
   }
 
   /**
-   * 0x00000003 CONNECT — 打开物理通道
+   * 0x00000003 CONNECT — open a physical channel
    * @param {object} opts
-   * @param {number} [opts.connectFlags] CAN 常用 CAN_ID_BOTH；ETH 见 DHCP/AUTO_IP
+   * @param {number} [opts.connectFlags] CAN often uses CAN_ID_BOTH; ETH see DHCP/AUTO_IP
    * @param {number} opts.protocolId Protocol.CAN=5 / ETH=0xFD / ISO9141=3…
-   * @param {number} opts.baudRate CAN 500000；K 线 10400
-   * @param {number} [opts.pinSelect] 高字节正极低字节负极，OBD CAN=0x060E；0=默认
+   * @param {number} opts.baudRate CAN 500000; K-line 10400
+   * @param {number} [opts.pinSelect] high byte = plus, low = minus; OBD CAN=0x060E; 0=default
    */
   connect(opts = {}) {
     return this._exec(this.codec.encodeConnect({
@@ -76,8 +76,8 @@ class J2534Protocol {
    * 0x00000005 READMSG
    * @param {number} channelId
    * @param {object} [opts]
-   * @param {number} [opts.msgNum=8] 最多条数
-   * @param {number} [opts.timeout=1000] 等待 ms；TIMEOUT/BUFFER_EMPTY 时仍可能有 messages
+   * @param {number} [opts.msgNum=8] max messages
+   * @param {number} [opts.timeout=1000] wait ms; TIMEOUT/BUFFER_EMPTY may still return messages
    */
   readMsg(channelId, opts = {}) {
     const num = pick(opts, ['msgNum', 'num'], 8)
@@ -103,7 +103,7 @@ class J2534Protocol {
    * 0x00000007 STARTPERIODICMSG
    * @param {number} channelId
    * @param {{ interval:number, handle?:number, txFlags?:number, data:Buffer|string }} msg
-   *   interval=周期 ms；data 写入 12 字节周期槽
+   *   interval = period ms; data fills the 12-byte periodic slot
    */
   startPeriodicMsg(channelId, msg) {
     return this._exec(this.codec.encodeStartPeriodic(channelId, msg), this.codec.decode.startPeriodicMsg)
@@ -120,11 +120,11 @@ class J2534Protocol {
    * @param {object} filter
    * @param {number} filter.type 1=PASS 2=BLOCK 3=FLOW_CONTROL
    * @param {number} [filter.localTxFlags]
-   * @param {number} [filter.remoteTxFlags] V2；ISO15765 发端标志
-   * @param {Buffer|string} filter.mask 5 字节
-   * @param {Buffer|string} filter.pattern 5 字节（RX ID）
+   * @param {number} [filter.remoteTxFlags] V2; ISO15765 TX-side flags
+   * @param {Buffer|string} filter.mask 5 bytes
+   * @param {Buffer|string} filter.pattern 5 bytes (RX ID)
    * @param {number} [filter.exp=0] SPEC/EXCHANGE_EA/OR/XOR…
-   * @param {Buffer|string} [filter.argument] 与 flowControl 同义（TX 或运算数）
+   * @param {Buffer|string} [filter.argument] same as flowControl (TX id or operand)
    */
   startMsgFilter(channelId, filter) {
     return this._exec(this.codec.encodeStartFilter(channelId, filter), this.codec.decode.startMsgFilter)
@@ -135,7 +135,7 @@ class J2534Protocol {
     return this._exec(this.codec.encodeStopFilter(channelId, filterId), this.codec.decode.stopMsgFilter)
   }
 
-  /** 0x0000000C READVERSION — 返回 ErrorCode, Version string */
+  /** 0x0000000C READVERSION — returns ErrorCode, Version string */
   async readVersion() {
     const version = await this.device.passThruReadVersion()
     return { error: 0, version }
@@ -143,7 +143,7 @@ class J2534Protocol {
 
   /**
    * 0x0000000D IOCTL
-   * @param {number} channelId 设备级填 0（如读电压）
+   * @param {number} channelId use 0 for device-level (e.g. read voltage)
    * @param {number} ioctlId SET_CONFIG=2, FIVE_BAUD_INIT=4, REQUEST_CONNECTION=0x800A…
    * @param {Buffer} [input]
    */
@@ -160,11 +160,11 @@ class J2534Protocol {
    * @param {number} phyChannelId
    * @param {object} opts
    * @param {number} opts.protocolId ISO15765=0x200, TP20=0x300, ISO13400=0x400…
-   * @param {number} [opts.connectFlags] 过滤加 ISO15765_FILTER；A 系列常 MINI
+   * @param {number} [opts.connectFlags] add ISO15765_FILTER for filter channels; A-series often MINI
    * @param {number} [opts.localTxFlags] / [opts.remoteTxFlags]
-   * @param {Buffer|string} [opts.localAddress] / [opts.remoteAddress] 各 5 字节
-   * @param {string} [opts.remoteIP] ETH：对端 IP（写入 LocalTxFlags 槽）
-   * @param {number} [opts.remotePort] / [opts.localPort] ETH 端口
+   * @param {Buffer|string} [opts.localAddress] / [opts.remoteAddress] 5 bytes each
+   * @param {string} [opts.remoteIP] ETH peer IP (written into LocalTxFlags slot)
+   * @param {number} [opts.remotePort] / [opts.localPort] ETH ports
    */
   logicalConnect(phyChannelId, opts = {}) {
     return this._exec(this.codec.encodeLogicalConnect(phyChannelId, {
@@ -186,7 +186,7 @@ class J2534Protocol {
   }
 
   /**
-   * 0x00000010 CUSTOM_FEATURE — WiFi 0x15–0x18；升级 0x83–0x89
+   * 0x00000010 CUSTOM_FEATURE — WiFi 0x15–0x18
    * @param {number} featureId
    * @param {Buffer} [input]
    */
@@ -198,7 +198,7 @@ class J2534Protocol {
     )
   }
 
-  /** 发送已编码的命令字载荷，返回原始应答（含 ErrorCode）。 */
+  /** Send an already-encoded command payload; returns raw response (includes ErrorCode). */
   exec(payload, timeout) {
     const c = this.codec
     return this._exec(Buffer.from(payload), (buf) => {
@@ -219,9 +219,7 @@ class J2534Protocol {
   }
 }
 
-J2534Protocol.Command = Command
-J2534Protocol.encode = codec.encode
-J2534Protocol.decode = codec.decode
-J2534Protocol.createCodec = codec.createCodec
-
-module.exports = { J2534Protocol }
+module.exports = {
+  J2534Protocol,
+  Command
+}

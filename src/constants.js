@@ -1,22 +1,12 @@
 'use strict'
 
-/** J2534_CUSTOM_FEATURE_ID — Firmware J2534.h. QXS1/QXS2 WiFi 走 ESP32 AT。 */
+/** J2534_CUSTOM_FEATURE_ID — Firmware J2534.h. QXS1/QXS2 WiFi via ESP32 AT. */
 const CustomFeature = {
   CONTROL_CAN_BUS_RESLOAD: 0,
   GET_WIFI_STATE: 0x15,
   SET_WIFI_SSID_PW: 0x16,
   DISC_WIFI: 0x17,
-  SCAN_WIFI: 0x18,
-  RESET_DEVICE: 0x80,
-  GET_PSN: 0x81,
-  GET_VERSION: 0x82,
-  ENTER_UPGRADE_MODE: 0x83,
-  GET_FLASH_INFO: 0x84,
-  ERASE_FLASH: 0x85,
-  SET_ENCRYPT_IV: 0x86,
-  PROGRAM_FLASH: 0x87,
-  CHECK_FLASH: 0x88,
-  EXIT_UPGRADE_MODE: 0x89
+  SCAN_WIFI: 0x18
 }
 
 const WifiState = {
@@ -43,21 +33,6 @@ const WifiEcnName = {
   4: 'WPA/WPA2',
   5: 'WPA2-ENT',
   6: 'WPA3'
-}
-
-/** J2534_ERASE_TYPE — ENTER_UPGRADE_MODE Input */
-const EraseType = {
-  APP: 0,
-  RESC: 1
-}
-
-/** J2534_VERSION_TYPE — GET_VERSION Input */
-const VersionType = {
-  HW: 0,
-  BOOT: 1,
-  APP: 2,
-  RESC: 3,
-  RESC_ID: 4
 }
 
 const Command = {
@@ -146,17 +121,17 @@ const Protocol = {
 const ProtocolName = Object.fromEntries(
   Object.entries(Protocol).map(([k, v]) => [v, k])
 )
-/** UI / 日志显示名；API 仍用 Protocol.ETH */
+/** UI / log display name; API constant remains Protocol.ETH */
 ProtocolName[Protocol.ETH] = 'ETH DoIP'
 
 const ConnectFlag = {
   FULL_DUPLEX: 0x00000001,
-  /** QX-A 逻辑 ISO15765 常用 */
+  /** Common on QX-A logical ISO15765 */
   ISO15765_MINI: 0x00000020,
   CHECK_PIN_VOLTAGE: 0x00000040,
   CAN_29BIT_ID: 0x00000100,
   CHECKSUM_DISABLE: 0x00000200,
-  /** CAN 物理默认：11/29 位都收 */
+  /** Default CAN physical: accept both 11- and 29-bit IDs */
   CAN_ID_BOTH: 0x00000800,
   K_LINE_ONLY: 0x00001000,
   ETH_NO_DHCP_CLIENT: 0x00040000,
@@ -171,24 +146,24 @@ const ConnectFlag = {
   CAN_TERMINATION: 0x08000000,
   ACTIVE_COMMIT_SIM: 0x10000000,
   ACTIVE_COMMIT: 0x20000000,
-  /** ISO15765 过滤逻辑通道（再 START_MSG_FILTER） */
+  /** ISO15765 filter logical channel (then START_MSG_FILTER) */
   ISO15765_FILTER: 0x40000000,
   ETH_TCP: 0x80000000
 }
 
 const TxFlag = {
-  /** ISO15765：单帧/FC 补到 DLC=8 */
+  /** ISO15765: pad single-frame / FC to DLC=8 */
   ISO15765_FRAME_PAD: 0x00000040,
-  /** ISO15765：混合寻址（数据前 1 字节 EA） */
+  /** ISO15765: mixed addressing (1-byte EA before data) */
   ISO15765_ADDR_TYPE: 0x00000080,
   CAN_29BIT_ID: 0x00000100,
   CANFD_BRS: 0x00080000,
   CANFD_FORMAT: 0x00100000,
-  /** 高 8 位 PaddingValue 有效；置位时固件用该字节填充，盖过 SET_CONFIG PAD_VALUE */
+  /** High 8 bits are PaddingValue; when set, firmware uses that byte over SET_CONFIG PAD_VALUE */
   PADDING_VALID: 0x00800000
 }
 
-/** FRAME_PAD + PADDING_VALID；高字节默认 00。要 FF 用 (0xFF<<24)|ISO15765_PAD 或 openIso15765({ padValue:0xFF }) */
+/** FRAME_PAD + PADDING_VALID; high byte defaults to 00. For FF use (0xFF<<24)|ISO15765_PAD or openIso15765({ padValue:0xFF }) */
 TxFlag.ISO15765_PAD = TxFlag.PADDING_VALID | TxFlag.ISO15765_FRAME_PAD
 
 const RxStatus = {
@@ -210,14 +185,14 @@ const FilterType = {
 }
 
 const FilterExp = {
-  /** Argument = 固定对端 TX ID */
+  /** Argument = fixed peer TX ID */
   SPEC: 0,
-  /** Argument=0；ID 低字节与 EA 对调（需 ADDR_TYPE） */
+  /** Argument=0; swap ID low byte with EA (needs ADDR_TYPE) */
   EXCHANGE_EA: 1,
-  /** Argument=运算数，TX = Pattern | Arg（常用 8） */
+  /** Argument=operand, TX = Pattern | Arg (often 8) */
   OR: 2,
   AND: 3,
-  /** 常用 Arg=8 → 7E8⊕8=7E0 */
+  /** Common Arg=8 → 7E8⊕8=7E0 */
   XOR: 4,
   PLUS: 5,
   MINUS: 6,
@@ -230,7 +205,7 @@ const FilterExp = {
   SPEC_LIST: 0xF0
 }
 
-/** J2534 SET_CONFIG paramID（ISO15765 流控说明见 PROTOCOL.md） */
+/** J2534 SET_CONFIG paramID (ISO15765 flow control: see PROTOCOL.md) */
 const ConfigParam = {
   DATA_RATE: 0x01,
   CAN_DATA_RATE: 0x01,
@@ -253,25 +228,25 @@ const ConfigParam = {
   W4_MAX: 0x29,
   CAN_ECHO_TX: 0x31,
   /**
-   * 填充字节。TxFlags 已带 PADDING_VALID 时固件用高 8 位，本项常被盖掉。
+   * Pad byte. Often ignored when TxFlags already has PADDING_VALID (firmware uses high 8 bits).
    */
   ISO15765_PAD_VALUE: 0x2B,
-  /** 收多帧：我们回的 FC.BS；0=不限块 */
+  /** RX multi-frame: FC.BS we send; 0=unlimited */
   ISO15765_BS: 0x1E,
-  /** 收多帧：我们回的 FC.STmin；0=尽快 */
+  /** RX multi-frame: FC.STmin we send; 0=as soon as possible */
   ISO15765_STMIN: 0x1F,
-  /** 发多帧：覆盖对方 FC.BS；0xFFFF=跟对方（推荐默认） */
+  /** TX multi-frame: override peer FC.BS; 0xFFFF=follow peer (recommended default) */
   ISO15765_BS_TX: 0x22,
-  /** 发多帧：覆盖对方 STmin；0xFFFF=跟对方；0x80xx=与对方取较大 */
+  /** TX multi-frame: override peer STmin; 0xFFFF=follow peer; 0x80xx=max(ours, peer) */
   ISO15765_STMIN_TX: 0x23,
-  /** 等下一 CF 超时，单位 ms（十进制，默认 1000） */
+  /** Wait for next CF timeout, ms (decimal, default 1000) */
   ISO15765_N_CR_MAX: 0x2F,
   PWM_NODE_ADDRESS: 0x04,
   CAN_FD_DATA_PHASE_RATE: 0x805C,
   CAN_HS_TERMINATION: 0x805E
 }
 
-/** ISO9141/ISO14230 FIVE_BAUD_MOD（SET_CONFIG 0x21） */
+/** ISO9141/ISO14230 FIVE_BAUD_MOD (SET_CONFIG 0x21) */
 const FiveBaudMod = {
   STD_INIT: 0,
   INV_KB2: 1,
@@ -425,10 +400,7 @@ const RDCOMM = {
     LoopBackTest: 0x81,
     QueryState: 0x82,
     J2534Command: 0x8C,
-    ServiceConfig: 0x8D,
-    ServiceClear: 0x8E,
     SetState: 0x8F,
-    J2534OutEvent: 0xE0,
     PeriodStateMsg: 0xE2
   },
   RE: { NoError: 0 },
@@ -436,7 +408,7 @@ const RDCOMM = {
   RS_LOCAL_REGISTERED: 0x00004000
 }
 
-/** DFirst ESP32 GATT. Format matches Activer blecfg: service-write-notify. */
+/** DFirst ESP32 GATT. blecfg format: service-write-notify. */
 const BLE = {
   NAME_PREFIX: 'QX',
   WRITE_MAX: 180,
@@ -447,7 +419,7 @@ const BLE = {
   MTU_HEAD: 12,
   FrameType: { DATA: 0, CONTROL: 1, ACK: 2 },
   Ack: { OK: 0 },
-  /** service / write / notify — 按机型常见度：ESP32 → C0 FEE0 → A2–A6 FFE1 → A0/A1 FFE0 */
+  /** service / write / notify — common by model: ESP32 → C0 FEE0 → A2–A6 FFE1 → A0/A1 FFE0 */
   PROFILES: [
     { service: 'a002', write: 'c304', notify: 'c305' },
     { service: 'a002', write: 'c303', notify: 'c305' },
@@ -479,8 +451,6 @@ module.exports = {
   ConfigParam,
   FiveBaudMod,
   CustomFeature,
-  EraseType,
-  VersionType,
   WifiState,
   WifiStateName,
   WifiEcnName,

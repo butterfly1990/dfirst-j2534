@@ -28,7 +28,7 @@ Node SDK 入口：`device.j2534.*`（类名 `DFirstJ2534`），和下面命令�
 | A5 A6 C0 S0 S1 S2 D0 | **V2** | `J2534_RD` | 字段多为 **u32 小端**；应答从 ErrorCode u32 起 |
 | A0 A1 A2 A3 A4（及 B0） | **V1** | `Midware/J2534` | 字段宽度更窄、**大端**；应答首字节为命令回显 |
 
-SDK 在 `connect` 后按机型码推断，`OPEN` 时按 Activer 顺序试首选版本再 fallback；OPEN 版本串末尾 `,V2` 会校正。只读属性 `device.proVersion`；构造可选 `proVersion: 'V1'|'V2'` 强制覆盖。编解码：`device.codec` / `createCodec(ver)`。
+SDK 在 `connect` 后按机型码推断，`OPEN` 时先试首选版本再 fallback；OPEN 版本串末尾 `,V2` 会校正。只读属性 `device.proVersion`；构造可选 `proVersion: 'V1'|'V2'` 强制覆盖。编解码：`device.codec` / `createCodec(ver)`。
 
 下文命令表以 **V2** 为主（当前默认文档）。
 
@@ -52,7 +52,6 @@ SDK 在 `connect` 后按机型码推断，`OPEN` 时按 Activer 顺序试首选�
 | RequestRegister | `0x80` | 4 字节随机数。应答 CSV：`PSN,AppVer,HwVer,BootVer,...` |
 | J2534Command | `0x8C` | 下面整段 J2534 命令；应答从 **ErrorCode** 起（不含固件内部 Length） |
 | SetState | `0x8F` | `Type(4) + Value(4)`，连上后置 `RS_LOCAL_REGISTERED=0x4000` |
-| J2534OutEvent | `0xE0` | 设备主动上报报文（JSON ActiveCommit 时） |
 
 ## 2. J2534 命令字
 
@@ -344,22 +343,6 @@ QXS1 / QXS2（`J2534_HAS_WIFI_ESP32`）WiFi FeatureID：
 | 0x18 | SCAN_WIFI | 空 | `len,ssid,ecn,rssi;` 重复 |
 
 SDK：`device.wifiGetState()` / `wifiScan()` / `wifiConnect(ssid, pw)` / `wifiDisconnect()`。建议走 BLE 配网，连上后 w0 发 mDNS。
-
-### 升级 `CUSTOM_FEATURE` 0x83–0x89
-
-S2（`J2534_HAS_UPDATE_FEATURE`）写到**空闲 APP 槽**，bin 需带鉴权头。
-
-| ID | 作用 | Input |
-|----|------|--------|
-| 0x83 | ENTER_UPGRADE_MODE | EraseType u32（0=APP） |
-| 0x84 | GET_FLASH_INFO | 空 → Start/End/PageNum/PageSize |
-| 0x85 | ERASE_FLASH | StartAddr + PageNum |
-| 0x87 | PROGRAM_FLASH | StartAddr + Data（≤2048） |
-| 0x88 | CHECK_FLASH | 空 |
-| 0x89 | EXIT_UPGRADE_MODE | 空 |
-| 0x80 | RESET_DEVICE | 空，约 500ms 后复位 |
-
-SDK：`device.upgradeFirmware(bin, { onProgress, reboot })`。
 
 ## 3. ProtocolID
 

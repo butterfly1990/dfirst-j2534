@@ -12,7 +12,6 @@ const {
   BLE,
   Ioctl,
   CustomFeature,
-  EraseType,
   ConfigParam,
   RxStatus,
   Protocol,
@@ -50,9 +49,7 @@ class PassThruChannel {
     this.protocol = meta.protocol
   }
 
-  async disconnect() {
-    // CLEAR_RX 在关通道前调用（请求路径不清）
-    await this.ioctl(Ioctl.CLEAR_RX_QUEUE).catch(() => {})
+  disconnect() {
     return this.physical
       ? this.device.passThruDisconnect(this.id)
       : this.device.passThruDisconnectLogical(this.id)
@@ -136,8 +133,9 @@ class PassThruChannel {
   }
 
   /**
-   * J1850 PWM：把地址写入功能查找表。驱动只收 dest==NODE_ADDRESS 或表内地址。
-   * OBD 应答头是 41 6B xx，必须加 0x6B，否则总线上有帧也进不了 ReadMsgs。
+   * J1850 PWM: write addresses into the functional lookup table.
+   * Driver only accepts dest==NODE_ADDRESS or table entries.
+   * OBD responses use header 41 6B xx — must include 0x6B or frames never reach ReadMsgs.
    */
   addFunctLookup(addrs) {
     return this.ioctl(Ioctl.ADD_TO_FUNCT_MSG_LOOKUP_TABLE, this.device.codec.encodeFunctLookup(addrs))
@@ -148,8 +146,8 @@ class PassThruChannel {
   }
 
   /**
-   * K 线 FIVE_BAUD_INIT。Input 1 字节地址，Output 2 字节 Keyword。
-   * 5 波特发地址约 2s，BLE/LAN 默认等 20s。
+   * K-line FIVE_BAUD_INIT. Input: 1-byte address; Output: 2-byte Keyword.
+   * Address at 5 baud takes ~2s; BLE/LAN default wait is 20s.
    */
   async fiveBaudInit(addr, opts = {}) {
     if (opts.fiveBaudMod != null) {
@@ -169,7 +167,7 @@ class PassThruChannel {
     }
   }
 
-  /** K 线 FAST_INIT。msg 为 StartCommunication（不含校验，固件会补）。 */
+  /** K-line FAST_INIT. `msg` is StartCommunication (no checksum; firmware appends it). */
   fastInit(msg, opts = {}) {
     const input = msg == null || msg === '' ? Buffer.alloc(0) : codec.toBuf(msg)
     return this.device.passThruIoctl(this.id, Ioctl.FAST_INIT, input, opts.timeout || 8000)
@@ -185,8 +183,8 @@ class PassThruChannel {
 
 class DFirstJ2534 extends EventEmitter {
   /**
-   * DFirst J2534 VCI（S2 / QX-A 等机型）。
-   * 协议版本：A5/A6/C0/S0/S1/S2/D0 → V2；A0–A4 → V1。可 `options.proVersion` 覆盖。
+   * DFirst J2534 VCI (S2 / QX-A and related models).
+   * Protocol: A5/A6/C0/S0/S1/S2/D0 → V2; A0–A4 → V1. Override with `options.proVersion`.
    * @param {{transport?: 'lan'|'ble', host?: string, port?: number, timeout?: number, name?: string, deviceId?: string, blecfg?: string, proVersion?: 'V1'|'V2'}} options
    */
   constructor(options = {}) {
@@ -196,7 +194,6 @@ class DFirstJ2534 extends EventEmitter {
     this.bledl = null
     this.info = null
     this.opened = false
-    this._configId = 0
     this.deviceCode = ''
     this._proVersionOverride = options.proVersion
       ? normalizeProVersion(options.proVersion)
@@ -215,7 +212,6 @@ class DFirstJ2534 extends EventEmitter {
         throw new DFirstJ2534Error('options.host is required (device Ethernet IP on e0)')
       }
       this.rdcomm = new RdcommClient(options)
-      this.rdcomm.on('event', (evt) => this._onEvent(evt))
       this.rdcomm.on('error', (err) => this.emit('error', err))
       this.rdcomm.on('close', () => {
         this.opened = false
@@ -226,7 +222,7 @@ class DFirstJ2534 extends EventEmitter {
     this.j2534 = new J2534Protocol(this)
   }
 
-  /** @returns {'V1'|'V2'} 只读；OPEN 成功后可能按设备回报校正。 */
+  /** @returns {'V1'|'V2'} read-only; may be corrected after a successful OPEN */
   get proVersion() {
     return this._proVersion
   }
@@ -287,9 +283,6 @@ class DFirstJ2534 extends EventEmitter {
       if (this.opened) {
         await this.passThruClose().catch(() => {})
       }
-      if (this._configId) {
-        await this.clearConfig().catch(() => {})
-      }
     } finally {
       if (this.bledl) {
         await this.bledl.close().catch(() => {})
@@ -332,7 +325,7 @@ class DFirstJ2534 extends EventEmitter {
     for (let i = 0; i < order.length; i++) {
       this._setProVersion(order[i])
       try {
-        // 与 Activer 一致：先尝试 CLOSE 再 OPEN
+        // Try CLOSE before OPEN (clears stale device session)
         await this._j2534(this.codec.encodeClose()).catch(() => {})
         const parsed = this.codec.parseOpen(await this._j2534(this.codec.encodeOpen()))
         this.opened = true
@@ -348,7 +341,7 @@ class DFirstJ2534 extends EventEmitter {
             return '(already open)'
           }
         }
-        // 版本不对时再试下一档；其它错误且已是最后一档则抛出
+        // Wrong wire version — try next; other errors throw on last attempt
         if (i === order.length - 1) {
           throw err
         }
@@ -493,8 +486,8 @@ class DFirstJ2534 extends EventEmitter {
   }
 
   /**
-   * QXS1/QXS2 ESP32 STA：CUSTOM_FEATURE GET_WIFI_STATE (0x15)。
-   * AT 最长约 20s，BLE 应答超时默认 25s。
+   * QXS1/QXS2 ESP32 STA: CUSTOM_FEATURE GET_WIFI_STATE (0x15).
+   * AT may take up to ~20s; BLE response timeout defaults to 25s.
    */
   async wifiGetState(timeout = 25000) {
     await this._ensureOpen()
@@ -502,14 +495,14 @@ class DFirstJ2534 extends EventEmitter {
     return codec.parseWifiState(res.output)
   }
 
-  /** CUSTOM_FEATURE SCAN_WIFI (0x18)。CWLAP 最长约 20s。 */
+  /** CUSTOM_FEATURE SCAN_WIFI (0x18). CWLAP may take up to ~20s. */
   async wifiScan(timeout = 30000) {
     await this._ensureOpen()
     const res = await this.j2534.customFeature(CustomFeature.SCAN_WIFI, Buffer.alloc(0), timeout)
     return codec.parseWifiScan(res.output)
   }
 
-  /** CUSTOM_FEATURE SET_WIFI_SSID_PW (0x16)。密码至少 2 字节（固件 InputLength 检查）。 */
+  /** CUSTOM_FEATURE SET_WIFI_SSID_PW (0x16). Password must be at least 2 bytes (firmware InputLength check). */
   async wifiConnect(ssid, password, timeout = 25000) {
     await this._ensureOpen()
     await this.j2534.customFeature(
@@ -525,133 +518,6 @@ class DFirstJ2534 extends EventEmitter {
     await this._ensureOpen()
     await this.j2534.customFeature(CustomFeature.DISC_WIFI, Buffer.alloc(0), timeout)
     return { ok: true }
-  }
-
-  /**
-   * 升级 App：CUSTOM_FEATURE ENTER_UPGRADE_MODE → ERASE → PROGRAM → CHECK → EXIT。
-   * 写到空闲槽（当前槽的另一半）。bin 需带鉴权头。默认写完复位。
-   */
-  async upgradeFirmware(bin, opts = {}) {
-    const onProgress = typeof opts.onProgress === 'function' ? opts.onProgress : () => {}
-    const chunkSize = Math.max(16, Math.min(opts.chunkSize || (this.transport === 'ble' ? 1024 : 2048), 2048) & ~15)
-    const reboot = opts.reboot !== false
-    const buf = Buffer.isBuffer(bin) ? bin : Buffer.from(bin)
-    if (!buf.length) {
-      throw new DFirstJ2534Error('empty firmware', { source: 'upgrade' })
-    }
-    if (buf.length > 0x80000) {
-      throw new DFirstJ2534Error('firmware larger than APP slot (512KB)', { source: 'upgrade' })
-    }
-
-    await this._ensureOpen()
-    const cf = (id, input, timeout) => this.j2534.customFeature(id, input, timeout)
-
-    onProgress({ phase: 'enter', percent: 0, msg: '进入升级模式' })
-    await cf(CustomFeature.ENTER_UPGRADE_MODE, this.codec.encodeEraseType(EraseType.APP), 15000)
-
-    try {
-      const infoRes = await cf(CustomFeature.GET_FLASH_INFO, Buffer.alloc(0), 10000)
-      const info = codec.parseFlashInfo(infoRes.output)
-      const pageSize = info.pageSize || 0x1000
-      const maxSize = (info.endAddr || 0x7FFFF) + 1
-      if (buf.length > maxSize) {
-        throw new DFirstJ2534Error(`firmware ${buf.length} > slot ${maxSize}`, { source: 'upgrade' })
-      }
-      const pages = Math.max(1, Math.ceil(buf.length / pageSize))
-      onProgress({
-        phase: 'erase',
-        percent: 2,
-        msg: `擦除 ${pages} 页 × ${pageSize}`,
-        pages,
-        pageSize,
-        info
-      })
-      await cf(
-        CustomFeature.ERASE_FLASH,
-        this.codec.encodeEraseFlash(info.startAddr || 0, pages),
-        opts.eraseTimeout || 120000
-      )
-
-      for (let off = 0; off < buf.length; off += chunkSize) {
-        const n = Math.min(chunkSize, buf.length - off)
-        let chunk = Buffer.from(buf.slice(off, off + n))
-        if (chunk.length & 15) {
-          const pad = Buffer.alloc((chunk.length + 15) & ~15, 0xff)
-          chunk.copy(pad)
-          chunk = pad
-        }
-        if (!chunk.every((b) => b === 0xff)) {
-          await cf(
-            CustomFeature.PROGRAM_FLASH,
-            this.codec.encodeProgramFlash(off, chunk),
-            opts.programTimeout || 20000
-          )
-        }
-        const written = Math.min(off + n, buf.length)
-        onProgress({
-          phase: 'program',
-          percent: 5 + Math.floor((written / buf.length) * 90),
-          msg: `写入 ${written}/${buf.length}`,
-          offset: written,
-          total: buf.length
-        })
-      }
-
-      onProgress({ phase: 'check', percent: 96, msg: '校验' })
-      await cf(CustomFeature.CHECK_FLASH, Buffer.alloc(0), 20000)
-      onProgress({ phase: 'exit', percent: 98, msg: '退出升级模式' })
-      await cf(CustomFeature.EXIT_UPGRADE_MODE, Buffer.alloc(0), 10000)
-    } catch (err) {
-      await cf(CustomFeature.EXIT_UPGRADE_MODE, Buffer.alloc(0), 10000).catch(() => {})
-      throw err
-    }
-
-    if (reboot) {
-      onProgress({ phase: 'reboot', percent: 99, msg: '复位设备' })
-      await cf(CustomFeature.RESET_DEVICE, Buffer.alloc(0), 5000).catch(() => {})
-    }
-    onProgress({ phase: 'done', percent: 100, msg: '完成' })
-    return { ok: true, size: buf.length, rebooted: reboot }
-  }
-
-  /**
-   * Apply the firmware JSON session (same as RDComm ServiceConfig).
-   * Device opens J2534 itself. Incoming frames arrive as `message` events.
-   */
-  async loadJsonConfig(config, configId = 0x12345678) {
-    if (!this.rdcomm) {
-      throw new DFirstJ2534Error('JSON config is LAN/RDComm only', { source: 'ble' })
-    }
-    const header = Buffer.alloc(8)
-    header.writeUInt32LE(0xffffffff, 0)
-    header.writeUInt32LE(configId, 4)
-    const json = typeof config === 'string' ? config : JSON.stringify(config)
-    const ack = await this.rdcomm.send(
-      RDCOMM.RC.ServiceConfig,
-      Buffer.concat([header, Buffer.from(json, 'ascii')]),
-      { timeout: 8000 }
-    )
-    const jerr = ack.data.length >= 4 ? ack.data.readUInt32LE(0) : 0
-    if (jerr) {
-      const log = ack.data.length > 4 ? ack.data.slice(4).toString('ascii') : ''
-      throw new DFirstJ2534Error(`JSON config failed 0x${jerr.toString(16)} ${log}`, {
-        code: jerr,
-        source: 'j2534'
-      })
-    }
-    this._configId = configId
-    this.opened = true
-    return configId
-  }
-
-  async clearConfig() {
-    if (!this.rdcomm) {
-      this._configId = 0
-      return
-    }
-    await this.rdcomm.send(RDCOMM.RC.ServiceClear, Buffer.alloc(0))
-    this._configId = 0
-    this.opened = false
   }
 
   /**
@@ -726,7 +592,7 @@ class DFirstJ2534 extends EventEmitter {
     if (fdRate) {
       rtf |= TxFlag.CANFD_FORMAT | TxFlag.CANFD_BRS
     }
-    // PaddingValid 时固件用 TxFlags 高字节，忽略仅 SET_CONFIG；把 padValue 并进高 8 位
+    // When PaddingValid is set, firmware uses TxFlags high byte over SET_CONFIG alone
     if (padValue != null) {
       const pad = padValue & 0xff
       if (rtf & TxFlag.ISO15765_FRAME_PAD) {
@@ -748,7 +614,7 @@ class DFirstJ2534 extends EventEmitter {
     const logFlags = connectFlags >>> 0
     const wantFilter = !!(logFlags & ConnectFlag.ISO15765_FILTER) ||
       protocol === Protocol.ISO15765_FILTER
-    // V1 过滤通道：ProtocolID=0x201，线上 ConnectFlags 不含 FILTER 位
+    // V1 filter channel: ProtocolID=0x201; wire ConnectFlags omit the FILTER bit
     const wireProto = (wantFilter && this.proVersion === 'V1')
       ? Protocol.ISO15765_FILTER
       : (protocol || Protocol.ISO15765)
@@ -869,16 +735,6 @@ class DFirstJ2534 extends EventEmitter {
     data.writeUInt32LE(RDCOMM.RST_Status, 0)
     data.writeUInt32LE(RDCOMM.RS_LOCAL_REGISTERED, 4)
     await this.rdcomm.send(RDCOMM.RC.SetState, data)
-  }
-
-  _onEvent(evt) {
-    if (evt.command === RDCOMM.RC.J2534OutEvent) {
-      const messages = codec.parseOutEvent(evt.data)
-      for (const msg of messages) {
-        this.emit('message', msg)
-      }
-    }
-    this.emit('event', evt)
   }
 }
 

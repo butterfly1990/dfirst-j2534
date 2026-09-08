@@ -43,8 +43,6 @@ export const Ioctl: Record<string, number>
 export const ConfigParam: Record<string, number>
 export const FiveBaudMod: { STD_INIT: 0; INV_KB2: 1; INC_ADDR: 2; ISO9141_STD: 3 }
 export const CustomFeature: Record<string, number>
-export const EraseType: { APP: 0; RESC: 1 }
-export const VersionType: Record<string, number>
 export const WifiState: Record<string, number>
 export const WifiStateName: Record<number, string>
 export const WifiEcnName: Record<number, string>
@@ -194,14 +192,14 @@ export class DFirstJ2534 {
     deviceId?: string
     blecfg?: string
     namePrefix?: string
-    /** 强制 J2534 线协议版本；默认按机型自动选择 */
+    /** Force J2534 wire protocol version; default is inferred from device model */
     proVersion?: 'V1' | 'V2'
   })
   readonly j2534: J2534Protocol
   readonly transport: 'lan' | 'ble'
-  /** 当前编解码版本（OPEN 后可能按设备回报校正） */
+  /** Active codec version (may be corrected after OPEN from the device string) */
   readonly proVersion: 'V1' | 'V2'
-  /** 机型码如 S2 / A2，来自名称或 PSN */
+  /** Model code such as S2 / A2, from BLE name or PSN */
   deviceCode: string
   readonly codec: ReturnType<typeof createCodec>
   info: { psn?: string; name?: string; appVersion?: string; hwVersion?: string; bootVersion?: string; raw?: string } | null
@@ -234,17 +232,8 @@ export class DFirstJ2534 {
   wifiScan(timeout?: number): Promise<{ ssid: string; ecn: number; rssi: number }[]>
   wifiConnect(ssid: string, password: string, timeout?: number): Promise<{ ssid: string }>
   wifiDisconnect(timeout?: number): Promise<{ ok: true }>
-  upgradeFirmware(bin: Buffer | Uint8Array, opts?: {
-    reboot?: boolean
-    chunkSize?: number
-    eraseTimeout?: number
-    programTimeout?: number
-    onProgress?: (p: { phase: string; percent: number; msg?: string }) => void
-  }): Promise<{ ok: true; size: number; rebooted: boolean }>
   openIso15765(opts?: object): Promise<PassThruChannel>
-  loadJsonConfig(config: object | string, configId?: number): Promise<number>
-  clearConfig(): Promise<void>
-  on(event: 'message' | 'connected' | 'close' | 'error' | 'event', listener: (...args: any[]) => void): this
+  on(event: 'connected' | 'close' | 'error', listener: (...args: any[]) => void): this
 }
 
 export const encode: Record<string, (...args: any[]) => Buffer>

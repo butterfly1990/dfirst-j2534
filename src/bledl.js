@@ -10,9 +10,9 @@ const { deviceCodeFromName } = require('./proVersion')
 const MAX_PACKAGE_CNT = 7
 const PACKAGE_TIMEOUT_MS = 400
 
-/** Activer blecfg：service-write-read-notify-maxPagLen-MTU（均为 hex）
- *  JDY 分包条件：maxPagLen < mtu（仅 A0/A1）
- *  A2–A4：按 mtu-12 切片，无包序号头
+/** blecfg: service-write-read-notify-maxPagLen-MTU (all hex)
+ *  JDY framing when maxPagLen < mtu (A0/A1 only)
+ *  A2–A4: slice by mtu-12, no package sequence header
  */
 const BLECFG_BY_CODE = {
   A0: 'FFE0-FFE1-FFE1-FFE1-14-20',
@@ -67,7 +67,7 @@ function bleLinkSummary(blecfg) {
 
 /**
  * BLEDL link: 3-byte header, optional compress/CRC, GATT chunking, ACK.
- * A0/A1（JDY）：mxPackLen < mtu 时每 GATT 包带序号头（Activer packageData）。
+ * A0/A1 (JDY): when mxPackLen < mtu, each GATT packet has a sequence header.
  */
 class BledlLink extends EventEmitter {
   constructor(options = {}) {
@@ -99,7 +99,7 @@ class BledlLink extends EventEmitter {
 
   _applyLinkCfg(blecfg) {
     const cfg = parseBlecfg(blecfg)
-    // Activer：mxPackLen < mtu → JDY 分包；否则按 MTU-12 切片（A2–A4/C0/A5）
+    // mxPackLen < mtu → JDY framing; otherwise slice by MTU-12 (A2–A4/C0/A5)
     this.mxPackLen = (cfg && cfg.maxPagLen) || BLE.WRITE_MAX
     this.mtu = (cfg && cfg.mtu) || 0xc0
     this.jdyPack = !!(cfg && this.mxPackLen < this.mtu)
@@ -174,7 +174,7 @@ class BledlLink extends EventEmitter {
     }
   }
 
-  /** Activer packageData / CalcPackageCnt：mxPackLen=20 时 JDY 分包 */
+  /** JDY package count when mxPackLen=20 */
   _calcJdyPackageCnt(len) {
     const mx = this.mxPackLen
     if (len < mx) return 1
@@ -383,7 +383,7 @@ class BledlLink extends EventEmitter {
         this.emit('trace', `jdy drop pkg idx=${currentIndex}`)
         return
       }
-      // 末包长度 < mxPackLen → 认为收完（对齐 Activer）
+      // Last packet shorter than mxPackLen → frame complete
       if (buf.length !== this.mxPackLen) {
         const raw = this._jdyAssemble()
         this._jdyCach = []

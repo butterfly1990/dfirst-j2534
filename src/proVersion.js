@@ -1,13 +1,13 @@
 'use strict'
 
-/** 与 Activer `V2Device` 对齐：走 J2534_RD（V2 小端 u32）。其余 A0–A4 等为 V1。 */
+/** V2 models use J2534_RD (little-endian u32). A0–A4 etc. are V1. */
 const V2_DEVICE_CODES = Object.freeze(['A5', 'A6', 'C0', 'S0', 'S1', 'S2', 'D0'])
 const V1_DEVICE_CODES = Object.freeze(['A0', 'A1', 'A2', 'A3', 'A4', 'B0'])
 
 /**
- * 从 BLE 名 / PSN / mDNS 实例名解析机型码（A0–A6、S0–S2、C0、D0…）。
+ * Parse model code from BLE name / PSN / mDNS instance (A0–A6, S0–S2, C0, D0…).
  * @param {string} [nameOrPsn]
- * @returns {string} 如 `S2`，无法识别则 `''`
+ * @returns {string} e.g. `S2`, or `''` if unrecognized
  */
 function deviceCodeFromName(nameOrPsn) {
   const s = String(nameOrPsn || '')
@@ -23,7 +23,7 @@ function normalizeProVersion(v) {
 }
 
 /**
- * OPEN / READ_VERSION 字符串：`soft,hard,sn,boot[,V2]`
+ * OPEN / READ_VERSION string: `soft,hard,sn,boot[,V2]`
  * @returns {{ soft?: string, hard?: string, sn?: string, boot?: string, proVersion?: string, raw: string }}
  */
 function parseOpenVersionString(versionStr) {
@@ -42,7 +42,7 @@ function parseOpenVersionString(versionStr) {
 }
 
 /**
- * 按机型推断协议版本。未知机型默认 V2（与当前 S 系列 SDK 一致）；可用 override 强制。
+ * Infer wire protocol from model. Unknown models default to V2 (S-series SDK default); use override to force.
  * @param {{ name?: string, psn?: string, deviceCode?: string, openVersion?: string, override?: string }} opts
  * @returns {'V1'|'V2'}
  */
@@ -59,7 +59,7 @@ function inferProVersion(opts = {}) {
   return 'V2'
 }
 
-/** Activer `_getVersionList`：优先猜的版本，失败再试另一套。 */
+/** Preferred wire version first, then the other as fallback. */
 function openVersionTryOrder(preferred) {
   const p = normalizeProVersion(preferred) === 'V1' ? 'V1' : 'V2'
   return p === 'V2' ? ['V2', 'V1'] : ['V1', 'V2']

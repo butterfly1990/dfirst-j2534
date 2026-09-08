@@ -47,7 +47,7 @@ const IoctlIdV1 = {
   [Ioctl.TEARDOWN_CONNECTION]: 0x11
 }
 
-/** V2 SET_CONFIG Index → V1 1 字节 Index（Activer `_initValue('ioctrl', v2, v1)`）。 */
+/** V2 SET_CONFIG Index → V1 1-byte Index. */
 const ConfigParamV1 = {
   [0x805C]: 0x02, // CAN_FD_DATA_PHASE_RATE → CAN_CFG_FD_DATA_RATE
   [0x805D]: 0x31, // FD_ISO15765_TX_DATA_LENGTH（与 ECHO 同号，仅 FD/15765 通道）
@@ -193,7 +193,8 @@ function parseBmwDesc(desc) {
 }
 
 /**
- * ISO13400_ROUTING_ACTIVE。对齐 Activer：SourceAddr BE u16 + ActivationType u8 + Version u8（共 4 字节）。
+ * ISO13400_ROUTING_ACTIVE.
+ * Payload: SourceAddr BE u16 + ActivationType u8 + Version u8 (4 bytes).
  */
 function encodeDoipRoutingActivation({ sourceAddr = 0x0E80, activationType = 0, version = 0x02 } = {}) {
   const buf = Buffer.alloc(4)
@@ -210,32 +211,6 @@ function encodeWifiSsidPw(ssid, password = '') {
     Buffer.from(String(password || ''), 'utf8'),
     Buffer.from([0])
   ])
-}
-
-function encodeEraseType(type) {
-  return u32(type)
-}
-
-function encodeEraseFlash(addr, pageNum) {
-  return Buffer.concat([u32(addr), u32(pageNum)])
-}
-
-function encodeProgramFlash(addr, data) {
-  const payload = Buffer.isBuffer(data) ? data : Buffer.from(data)
-  return Buffer.concat([u32(addr), payload])
-}
-
-function parseFlashInfo(buf) {
-  const raw = Buffer.isBuffer(buf) ? buf : Buffer.alloc(0)
-  if (raw.length < 16) {
-    return { startAddr: 0, endAddr: 0, pageNum: 0, pageSize: 0 }
-  }
-  return {
-    startAddr: raw.readUInt32LE(0),
-    endAddr: raw.readUInt32LE(4),
-    pageNum: raw.readUInt32LE(8),
-    pageSize: raw.readUInt32LE(12)
-  }
 }
 
 function parseWifiState(buf) {
@@ -590,8 +565,8 @@ function createCodec(proVersion = 'V2') {
         data
       ])
     }
-    // V1：cmd1 + ch1 + id1 + len2 + input（与小程序 ioctrl 一致；CLEAR 也带 len=0）
-    // SET_CONFIG / GET_CONFIG / FUNCT_LOOKUP：Activer 把 Num 放在 len 槽，input 已自带 Num。
+    // V1: cmd1 + ch1 + id1 + len2 + input (CLEAR also sends len=0)
+    // SET_CONFIG / GET_CONFIG / FUNCT_LOOKUP: Num sits in the len slot; input already includes Num.
     const parts = [
       cmd(Command.IOCTL),
       uN(channelId, 1),
@@ -973,32 +948,6 @@ function createCodec(proVersion = 'V2') {
     return list
   }
 
-  function parseOutEvent(buf) {
-    if (!buf || buf.length < 24) {
-      return []
-    }
-    const queueNum = buf.readUInt8(0)
-    const messages = []
-    let offset = 4
-    let n = 0
-    while (offset + 20 <= buf.length && n < Math.max(queueNum, 1)) {
-      const channelId = buf.readUInt32LE(offset)
-      const timestamp = buf.readUInt32LE(offset + 4)
-      const rxStatus = buf.readUInt32LE(offset + 8)
-      const dataSize = buf.readUInt32LE(offset + 12)
-      const extraDataIndex = buf.readUInt32LE(offset + 16)
-      offset += 20
-      if (offset + dataSize > buf.length) {
-        break
-      }
-      const data = Buffer.from(buf.slice(offset, offset + dataSize))
-      offset += (dataSize + 3) & ~3
-      n++
-      messages.push({ channelId, timestamp, rxStatus, dataSize, extraDataIndex, data })
-    }
-    return messages
-  }
-
   const encode = {
     open: encodeOpen,
     close: encodeClose,
@@ -1021,9 +970,6 @@ function createCodec(proVersion = 'V2') {
     tp16RequestConnection: encodeTp16RequestConnection,
     customFeature: encodeCustomFeature,
     wifiSsidPw: encodeWifiSsidPw,
-    eraseType: encodeEraseType,
-    eraseFlash: encodeEraseFlash,
-    programFlash: encodeProgramFlash,
     logicalConnect: encodeLogicalConnect,
     logicalDisconnect: encodeLogicalDisconnect
   }
@@ -1076,9 +1022,6 @@ function createCodec(proVersion = 'V2') {
     encodeTp16RequestConnection,
     encodeCustomFeature,
     encodeWifiSsidPw,
-    encodeEraseType,
-    encodeEraseFlash,
-    encodeProgramFlash,
     parseBmwDiscovery,
     parseIso13400Discovery,
     parseResponse,
@@ -1090,7 +1033,6 @@ function createCodec(proVersion = 'V2') {
     parseRead,
     parseWrite,
     parseIoctl,
-    parseOutEvent,
     throwIfError,
     mapIoctlId
   }
@@ -1138,12 +1080,8 @@ module.exports = {
   encodeTp16RequestConnection: defaultCodec.encodeTp16RequestConnection,
   encodeCustomFeature: defaultCodec.encodeCustomFeature,
   encodeWifiSsidPw,
-  encodeEraseType,
-  encodeEraseFlash,
-  encodeProgramFlash,
   parseWifiState,
   parseWifiScan,
-  parseFlashInfo,
   parseResponse: defaultCodec.parseResponse,
   parseError: defaultCodec.parseError,
   parseOpen: defaultCodec.parseOpen,
@@ -1153,6 +1091,5 @@ module.exports = {
   parseRead: defaultCodec.parseRead,
   parseWrite: defaultCodec.parseWrite,
   parseIoctl: defaultCodec.parseIoctl,
-  parseOutEvent: defaultCodec.parseOutEvent,
   throwIfError
 }

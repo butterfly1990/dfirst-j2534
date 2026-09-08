@@ -54,7 +54,6 @@ LAN diagnostic usage:
 | RequestRegister | `0x80` | 4-byte random. Response CSV:`PSN,AppVer,HwVer,BootVer,...` |
 | J2534Command | `0x8C` | full J2534 command; response starts at **ErrorCode** (no internal Length) |
 | SetState | `0x8F` | `Type(4) + Value(4)`，set after connect `RS_LOCAL_REGISTERED=0x4000` |
-| J2534OutEvent | `0xE0` | device push (JSON ActiveCommit) |
 
 ## 2. J2534 commands
 
@@ -346,22 +345,6 @@ QXS1 / QXS2（`J2534_HAS_WIFI_ESP32`）WiFi FeatureID：
 | 0x18 | SCAN_WIFI | 空 | `len,ssid,ecn,rssi;` 重复 |
 
 SDK：`device.wifiGetState()` / `wifiScan()` / `wifiConnect(ssid, pw)` / `wifiDisconnect()`。Prefer BLE provisioning; then w0 advertises mDNS.
-
-### Upgrade `CUSTOM_FEATURE` 0x83–0x89
-
-S2 (`J2534_HAS_UPDATE_FEATURE`) writes the **idle APP slot**; bin needs auth header.
-
-| ID | Role | Input |
-|----|------|--------|
-| 0x83 | ENTER_UPGRADE_MODE | EraseType u32（0=APP） |
-| 0x84 | GET_FLASH_INFO | empty → Start/End/PageNum/PageSize |
-| 0x85 | ERASE_FLASH | StartAddr + PageNum |
-| 0x87 | PROGRAM_FLASH | StartAddr + Data（≤2048） |
-| 0x88 | CHECK_FLASH | 空 |
-| 0x89 | EXIT_UPGRADE_MODE | 空 |
-| 0x80 | RESET_DEVICE | empty; reset ~500ms later |
-
-SDK：`device.upgradeFirmware(bin, { onProgress, reboot })`。
 
 ## 3. ProtocolID
 
