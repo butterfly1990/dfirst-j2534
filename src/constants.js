@@ -1,0 +1,490 @@
+'use strict'
+
+/** J2534_CUSTOM_FEATURE_ID — Firmware J2534.h. QXS1/QXS2 WiFi 走 ESP32 AT。 */
+const CustomFeature = {
+  CONTROL_CAN_BUS_RESLOAD: 0,
+  GET_WIFI_STATE: 0x15,
+  SET_WIFI_SSID_PW: 0x16,
+  DISC_WIFI: 0x17,
+  SCAN_WIFI: 0x18,
+  RESET_DEVICE: 0x80,
+  GET_PSN: 0x81,
+  GET_VERSION: 0x82,
+  ENTER_UPGRADE_MODE: 0x83,
+  GET_FLASH_INFO: 0x84,
+  ERASE_FLASH: 0x85,
+  SET_ENCRYPT_IV: 0x86,
+  PROGRAM_FLASH: 0x87,
+  CHECK_FLASH: 0x88,
+  EXIT_UPGRADE_MODE: 0x89
+}
+
+const WifiState = {
+  NO_CONNECT: 0,
+  CONNECTED_NO_IP: 1,
+  CONNECTED_HAD_IP: 2,
+  CONNECTING: 3,
+  DISCONNECTED: 4
+}
+
+const WifiStateName = {
+  0: '未连接',
+  1: '已连 AP 无 IP',
+  2: '已连并有 IP',
+  3: '连接中',
+  4: '已断开'
+}
+
+const WifiEcnName = {
+  0: 'OPEN',
+  1: 'WEP',
+  2: 'WPA',
+  3: 'WPA2',
+  4: 'WPA/WPA2',
+  5: 'WPA2-ENT',
+  6: 'WPA3'
+}
+
+/** J2534_ERASE_TYPE — ENTER_UPGRADE_MODE Input */
+const EraseType = {
+  APP: 0,
+  RESC: 1
+}
+
+/** J2534_VERSION_TYPE — GET_VERSION Input */
+const VersionType = {
+  HW: 0,
+  BOOT: 1,
+  APP: 2,
+  RESC: 3,
+  RESC_ID: 4
+}
+
+const Command = {
+  OPEN: 0x00000001,
+  CLOSE: 0x00000002,
+  CONNECT: 0x00000003,
+  DISCONNECT: 0x00000004,
+  READ_MSG: 0x00000005,
+  WRITE_MSG: 0x00000006,
+  START_PERIODIC_MSG: 0x00000007,
+  STOP_PERIODIC_MSG: 0x00000008,
+  START_MSG_FILTER: 0x00000009,
+  STOP_MSG_FILTER: 0x0000000A,
+  SET_PROGRAMMING_VOLTAGE: 0x0000000B,
+  READ_VERSION: 0x0000000C,
+  IOCTL: 0x0000000D,
+  LOGICAL_CONNECT: 0x0000000E,
+  LOGICAL_DISCONNECT: 0x0000000F,
+  CUSTOM_FEATURE: 0x00000010,
+  UPDATE_FIRMWARE: 0x00000011,
+  BATCH_START_PERIODIC_MSG: 0x00000012
+}
+
+const CommandName = {
+  0x00000001: 'OPEN',
+  0x00000002: 'CLOSE',
+  0x00000003: 'CONNECT',
+  0x00000004: 'DISCONNECT',
+  0x00000005: 'READMSG',
+  0x00000006: 'WRITEMSG',
+  0x00000007: 'STARTPERIODICMSG',
+  0x00000008: 'STOPPERIODICMSG',
+  0x00000009: 'STARTMSGFILTER',
+  0x0000000A: 'STOPMSGFILTER',
+  0x0000000B: 'SETPROGRAMMINGVOLTAGE',
+  0x0000000C: 'READVERSION',
+  0x0000000D: 'IOCTL',
+  0x0000000E: 'LOGICALCONNECT',
+  0x0000000F: 'LOGICALDISCONNECT',
+  0x00000010: 'CUSTOMFEATURE'
+}
+
+const Protocol = {
+  J1850VPW: 1,
+  J1850PWM: 2,
+  ISO9141: 3,
+  ISO14230: 4,
+  CAN: 5,
+  J2610: 7,
+  CAN12_13: 0xF8,
+  CAN1_9: 0xFA,
+  LSCAN: 0xFC,
+  ETH: 0xFD,
+  MSCAN: 0xFE,
+  SWCAN: 0xFF,
+  ISO15765: 0x200,
+  ISO15765_FILTER: 0x201,
+  ISO15765_FD: 0x210,
+  ISO15765_FD_FILTER: 0x211,
+  TP20: 0x300,
+  TP16: 0x301,
+  ISO13400: 0x400,
+  ETH_BMW: 0x401,
+  ETH_PASSTHRU: 0x402,
+  J1850VPW_PS: 0x8000,
+  J1850PWM_PS: 0x8001,
+  ISO9141_PS: 0x8002,
+  ISO14230_PS: 0x8003,
+  CAN_PS: 0x8004,
+  ISO15765_PS: 0x8005,
+  J2610_PS: 0x8006,
+  SW_ISO15765_PS: 0x8007,
+  SW_CAN_PS: 0x8008,
+  GM_UART_PS: 0x8009,
+  UART_ECHO_BYTE_PS: 0x800A,
+  HONDA_DIAGH_PS: 0x800B,
+  J1939_PS: 0x800C,
+  J1708_PS: 0x800D,
+  TP2_0_PS: 0x800E,
+  FT_CAN_PS: 0x800F,
+  FT_ISO15765_PS: 0x8010,
+  FD_CAN_PS: 0x8011,
+  FD_ISO15765_PS: 0x8012
+}
+
+const ProtocolName = Object.fromEntries(
+  Object.entries(Protocol).map(([k, v]) => [v, k])
+)
+
+const ConnectFlag = {
+  FULL_DUPLEX: 0x00000001,
+  /** QX-A 逻辑 ISO15765 常用 */
+  ISO15765_MINI: 0x00000020,
+  CHECK_PIN_VOLTAGE: 0x00000040,
+  CAN_29BIT_ID: 0x00000100,
+  CHECKSUM_DISABLE: 0x00000200,
+  /** CAN 物理默认：11/29 位都收 */
+  CAN_ID_BOTH: 0x00000800,
+  K_LINE_ONLY: 0x00001000,
+  ETH_NO_DHCP_CLIENT: 0x00040000,
+  ETH_FORCE_KEEP: 0x00080000,
+  TP20_NO_CT_CHECK: 0x00100000,
+  TP16_LOCAL_DIR_CHANGE_ACK: 0x00200000,
+  ETH_AUTO_IP: 0x00400000,
+  BMW_NET_AUTO_CONNECT: 0x00800000,
+  ETH_NO_DHCP_SERVER: 0x01000000,
+  ETH_NO_CHECK_OPTION2: 0x02000000,
+  ETH_NO_CHECK_OPTION1: 0x04000000,
+  CAN_TERMINATION: 0x08000000,
+  ACTIVE_COMMIT_SIM: 0x10000000,
+  ACTIVE_COMMIT: 0x20000000,
+  /** ISO15765 过滤逻辑通道（再 START_MSG_FILTER） */
+  ISO15765_FILTER: 0x40000000,
+  ETH_TCP: 0x80000000
+}
+
+const TxFlag = {
+  /** ISO15765：单帧/FC 补到 DLC=8 */
+  ISO15765_FRAME_PAD: 0x00000040,
+  /** ISO15765：混合寻址（数据前 1 字节 EA） */
+  ISO15765_ADDR_TYPE: 0x00000080,
+  CAN_29BIT_ID: 0x00000100,
+  CANFD_BRS: 0x00080000,
+  CANFD_FORMAT: 0x00100000,
+  /** 高 8 位 PaddingValue 有效；置位时固件用该字节填充，盖过 SET_CONFIG PAD_VALUE */
+  PADDING_VALID: 0x00800000
+}
+
+/** FRAME_PAD + PADDING_VALID；高字节默认 00。要 FF 用 (0xFF<<24)|ISO15765_PAD 或 openIso15765({ padValue:0xFF }) */
+TxFlag.ISO15765_PAD = TxFlag.PADDING_VALID | TxFlag.ISO15765_FRAME_PAD
+
+const RxStatus = {
+  TX_MSG_TYPE: 0x00000001,
+  START_OF_MESSAGE: 0x00000002,
+  TX_SUCCESS: 0x00000008,
+  ISO15765_PADDING: 0x00000010,
+  ERROR_INDICATION: 0x00000020,
+  BUFFER_OVERFLOW: 0x00000040,
+  ISO15765_ADDR_TYPE: 0x00000080,
+  CAN_29BIT_ID: 0x00000100,
+  TX_FAILED: 0x00000200
+}
+
+const FilterType = {
+  PASS: 1,
+  BLOCK: 2,
+  FLOW_CONTROL: 3
+}
+
+const FilterExp = {
+  /** Argument = 固定对端 TX ID */
+  SPEC: 0,
+  /** Argument=0；ID 低字节与 EA 对调（需 ADDR_TYPE） */
+  EXCHANGE_EA: 1,
+  /** Argument=运算数，TX = Pattern | Arg（常用 8） */
+  OR: 2,
+  AND: 3,
+  /** 常用 Arg=8 → 7E8⊕8=7E0 */
+  XOR: 4,
+  PLUS: 5,
+  MINUS: 6,
+  EXCHANGE_29BIT: 7,
+  SINGLE_FRAME: 8,
+  EXCHANGE_29_13BIT: 9,
+  EXCHANGE_1_x_6_3_BIT: 10,
+  SPEC_LIST_BLOCK: 0xE0,
+  MASK_PATTERN_BLOCK: 0xE1,
+  SPEC_LIST: 0xF0
+}
+
+/** J2534 SET_CONFIG paramID（ISO15765 流控说明见 PROTOCOL.md） */
+const ConfigParam = {
+  DATA_RATE: 0x01,
+  CAN_DATA_RATE: 0x01,
+  P1_MAX: 0x07,
+  P2_MAX: 0x09,
+  P3_MIN: 0x0A,
+  P4_MIN: 0x0C,
+  W1_MAX: 0x0E,
+  W2_MAX: 0x0F,
+  W3_MAX: 0x10,
+  W4_MIN: 0x11,
+  W5_MIN: 0x12,
+  TIDLE: 0x13,
+  TINIL: 0x14,
+  TWUP: 0x15,
+  PARITY: 0x16,
+  W0_MIN: 0x19,
+  DATA_BITS: 0x20,
+  FIVE_BAUD_MOD: 0x21,
+  W4_MAX: 0x29,
+  CAN_ECHO_TX: 0x31,
+  /**
+   * 填充字节。TxFlags 已带 PADDING_VALID 时固件用高 8 位，本项常被盖掉。
+   */
+  ISO15765_PAD_VALUE: 0x2B,
+  /** 收多帧：我们回的 FC.BS；0=不限块 */
+  ISO15765_BS: 0x1E,
+  /** 收多帧：我们回的 FC.STmin；0=尽快 */
+  ISO15765_STMIN: 0x1F,
+  /** 发多帧：覆盖对方 FC.BS；0xFFFF=跟对方（推荐默认） */
+  ISO15765_BS_TX: 0x22,
+  /** 发多帧：覆盖对方 STmin；0xFFFF=跟对方；0x80xx=与对方取较大 */
+  ISO15765_STMIN_TX: 0x23,
+  /** 等下一 CF 超时，单位 ms（十进制，默认 1000） */
+  ISO15765_N_CR_MAX: 0x2F,
+  PWM_NODE_ADDRESS: 0x04,
+  CAN_FD_DATA_PHASE_RATE: 0x805C,
+  CAN_HS_TERMINATION: 0x805E
+}
+
+/** ISO9141/ISO14230 FIVE_BAUD_MOD（SET_CONFIG 0x21） */
+const FiveBaudMod = {
+  STD_INIT: 0,
+  INV_KB2: 1,
+  INC_ADDR: 2,
+  ISO9141_STD: 3
+}
+
+const Ioctl = {
+  GET_CONFIG: 1,
+  SET_CONFIG: 2,
+  READ_PIN_VOLTAGE: 3,
+  FIVE_BAUD_INIT: 4,
+  FAST_INIT: 5,
+  CLEAR_TX_QUEUE: 7,
+  CLEAR_RX_QUEUE: 8,
+  CLEAR_PERIODIC_MSGS: 9,
+  CLEAR_MSG_FILTERS: 10,
+  CLEAR_FUNCT_MSG_LOOKUP_TABLE: 11,
+  ADD_TO_FUNCT_MSG_LOOKUP_TABLE: 12,
+  DELETE_FROM_FUNCT_MSG_LOOKUP_TABLE: 13,
+  SET_PERIOD_READ_VOLTAGE: 0x18,
+  CLR_PERIOD_READ_VOLTAGE: 0x19,
+  READ_PERIOD_READ_VOLTAGE: 0x1A,
+  ETH_GET_OPTION: 0x10000,
+  ETH_BMW_DISCOVERY: 0x10001,
+  ETH_GET_DHCP_POOL: 0x10002,
+  ISO13400_DISCOVERY: 0x10003,
+  ISO13400_ROUTING_ACTIVE: 0x10004,
+  CLEAR_ALL_RX_QUEUE: 0x10005,
+  REQUEST_CONNECTION: 0x800A,
+  TEARDOWN_CONNECTION: 0x800B
+}
+
+/** Matches Firmware/Library/Midware/J2534_RD/J2534.h J2534_ERROR_CODE */
+const ErrorCode = {
+  NOERROR: 0,
+  NOT_SUPPORTED: 1,
+  INVALID_CHANNEL_ID: 2,
+  PROTOCOL_ID_NOT_SUPPORTED: 3,
+  NULL_PARAMETER: 4,
+  IOCTL_VALUE_NOT_SUPPORTED: 5,
+  FLAG_NOT_SUPPORTED: 6,
+  FAILED: 7,
+  DEVICE_NOT_CONNECTED: 8,
+  TIMEOUT: 9,
+  INVALID_MSG: 0x0A,
+  TIME_INTERVAL_NOT_SUPPORTED: 0x0B,
+  EXCEEDED_LIMIT: 0x0C,
+  INVALID_MSG_ID: 0x0D,
+  DEVICE_IN_USE: 0x0E,
+  IOCTL_ID_NOT_SUPPORTED: 0x0F,
+  BUFFER_EMPTY: 0x10,
+  BUFFER_FULL: 0x11,
+  BUFFER_OVERFLOW: 0x12,
+  PIN_NOT_SUPPORTED: 0x13,
+  RESOURCE_CONFLICT: 0x14,
+  MSG_PROTOCOL_ID: 0x15,
+  INVALID_FILTER_ID: 0x16,
+  MSG_NOT_ALLOWED: 0x17,
+  NOT_UNIQUE: 0x18,
+  BAUDRATE_NOT_SUPPORTED: 0x19,
+  INVALID_DEVICE_ID: 0x1A,
+  DEVICE_NOT_OPEN: 0x1B,
+  NULL_REQUIRED: 0x1C,
+  FILTER_TYPE_NOT_SUPPORTED: 0x1D,
+  IOCTL_PARAM_ID_NOT_SUPPORTED: 0x1E,
+  VOLTAGE_IN_USE: 0x1F,
+  PIN_IN_USE: 0x20,
+  INIT_FAILED: 0x21,
+  OPEN_FAILED: 0x22,
+  BUFFER_TOO_SMALL: 0x23,
+  LOG_CHAN_NOT_ALLOWED: 0x24,
+  SELECT_TYPE_NOT_SUPPORTED: 0x25,
+  CONCURRENT_API_CALL: 0x26,
+
+  BOOT_PARAM_ID_NOT_SUPPORTED: 0x80,
+  BOOT_PARAM_LENGTH: 0x81,
+  APP_VERITY: 0x82,
+  INVALID_ADDR: 0x83,
+  FLASH_EARSE: 0x84,
+  FLASH_WRITE: 0x85,
+  PSN_EXISTED: 0x86,
+  PSN_CHECKSUM: 0x87,
+  BOOT_VALUE_NOT_SUPPORTED: 0x88,
+  ESG_VERITY: 0x89,
+  CF_ID_NOT_SUPPORTED: 0x8A,
+  CF_VALUE_NOT_SUPPORTED: 0x8B,
+  SOCKET: 0x8C,
+  TEST_ID_NOT_SUPPORTED: 0x8D,
+
+  JC_NO_ARRAY: 0x100,
+  JC_PARAM: 0x101,
+  JC_CONN_FLAG: 0x102,
+  JC_PID: 0x103,
+  JC_ADDR: 0x104,
+  JC_TX_FLAG: 0x105,
+  JC_MSG_HANDLE: 0x106,
+  JC_DATA: 0x107,
+  JC_IO_CTRL_ID: 0x108,
+  JC_FILTER_TYPE: 0x109,
+  JC_FILTER_MASK_PATTERN: 0x10A,
+  JC_FILTER_EXP: 0x10B,
+  JC_FILTER_LAG: 0x10C,
+  JC_FILTER_SPEC_LIST: 0x10D,
+  JC_FILTER_ARGUMENT: 0x10E,
+
+  TEST_4G_DRIVER: 0x200,
+  TEST_4G_NO_INTERNET: 0x201,
+  TEST_ETH_DRIVER: 0x202,
+  TEST_ETH_NO_PHY: 0x203,
+  TEST_ETH_NO_100M: 0x204,
+  TEST_ETH_NO_FULL_DUPLEX: 0x205,
+  TEST_ETH_NO_LINK: 0x206,
+  TEST_PSN_AUTH: 0x207,
+  TEST_BOOT_AUTH: 0x208,
+  TEST_NO_ORG_PSN: 0x209,
+  TEST_WRITE_PSN: 0x20A,
+  TEST_OTP_READ: 0x20B,
+  TEST_OTP_HAD_SET: 0x20C,
+  TEST_OTP_WRITE: 0x20D,
+  TEST_READ_IMEI: 0x20E,
+  TEST_SHORT_VCC: 0x20F,
+  TEST_SHORT_GND: 0x210,
+  TEST_ETH_ACT: 0x211,
+  TEST_ETH_OPTION1: 0x212,
+  TEST_ETH_OPTION2: 0x213,
+
+  ADDRESS_NOT_CLAIMED: 0x00010000,
+  NO_CONNECTION_ESTABLISHED: 0x00010001,
+  RESOURCE_IN_USE: 0x00010002,
+
+  PIN_VOLTAGE_NOT_SUPPORTED: 0x800001FE,
+  VERSION: 0x800001FF,
+  LENGTH: 0x80000200
+}
+
+const ErrorName = Object.fromEntries(
+  Object.entries(ErrorCode).map(([k, v]) => [v, k])
+)
+
+const RDCOMM = {
+  MAGIC: 0x01FEFFFF,
+  HEADER_LEN: 12,
+  MIN_FRAME: 16,
+  PORT: 19000,
+  /** DNS-SD: QX{PSN}._rdcomm._tcp.local  (e0 lwIP + w0 ESP32 AT+MDNS) */
+  MDNS_SERVICE: 'rdcomm',
+  MDNS_TYPE: '_rdcomm._tcp.local',
+  RC: {
+    RequestRegister: 0x80,
+    LoopBackTest: 0x81,
+    QueryState: 0x82,
+    J2534Command: 0x8C,
+    ServiceConfig: 0x8D,
+    ServiceClear: 0x8E,
+    SetState: 0x8F,
+    J2534OutEvent: 0xE0,
+    PeriodStateMsg: 0xE2
+  },
+  RE: { NoError: 0 },
+  RST_Status: 0,
+  RS_LOCAL_REGISTERED: 0x00004000
+}
+
+/** DFirst ESP32 GATT. Format matches Activer blecfg: service-write-notify. */
+const BLE = {
+  NAME_PREFIX: 'QX',
+  WRITE_MAX: 180,
+  ACK_TIMEOUT: 3000,
+  RETRY: 3,
+  COMPRESS_MIN: 16,
+  CRC_MIN: 16,
+  MTU_HEAD: 12,
+  FrameType: { DATA: 0, CONTROL: 1, ACK: 2 },
+  Ack: { OK: 0 },
+  /** service / write / notify — 按机型常见度：ESP32 → C0 FEE0 → A2–A6 FFE1 → A0/A1 FFE0 */
+  PROFILES: [
+    { service: 'a002', write: 'c304', notify: 'c305' },
+    { service: 'a002', write: 'c303', notify: 'c305' },
+    { service: 'a002', write: 'c302', notify: 'c305' },
+    { service: 'fee0', write: 'fee2', notify: 'c305' },
+    { service: 'fee0', write: 'fee2', notify: 'fee2' },
+    { service: 'fee0', write: 'fee1', notify: 'fee2' },
+    { service: 'ffe1', write: 'ffe3', notify: 'ffe2' },
+    { service: 'ffe0', write: 'ffe1', notify: 'ffe1' }
+  ]
+}
+
+/** J1962 pin pair as PinSelect (high byte = plus, low byte = minus). */
+function pinSelect(plusPin, minusPin = 0) {
+  return ((plusPin & 0xff) << 8) | (minusPin & 0xff)
+}
+
+module.exports = {
+  Command,
+  CommandName,
+  Protocol,
+  ProtocolName,
+  ConnectFlag,
+  TxFlag,
+  RxStatus,
+  FilterType,
+  FilterExp,
+  Ioctl,
+  ConfigParam,
+  FiveBaudMod,
+  CustomFeature,
+  EraseType,
+  VersionType,
+  WifiState,
+  WifiStateName,
+  WifiEcnName,
+  ErrorCode,
+  ErrorName,
+  RDCOMM,
+  BLE,
+  pinSelect
+}

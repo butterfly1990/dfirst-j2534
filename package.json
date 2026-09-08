@@ -1,0 +1,44 @@
+{
+  "name": "dfirst-j2534",
+  "version": "0.1.0",
+  "description": "DFirst J2534 PassThru SDK — LAN RDComm / BLE",
+  "main": "src/index.js",
+  "types": "index.d.ts",
+  "files": [
+    "src",
+    "index.d.ts",
+    "README.md",
+    "README.en.md",
+    "PROTOCOL.md",
+    "PROTOCOL.en.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=16"
+  },
+  "keywords": [
+    "dfirst",
+    "j2534",
+    "passthru",
+    "superlink",
+    "uds",
+    "iso15765"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "crc": "^4.3.2",
+    "multicast-dns": "^7.2.5"
+  },
+  "peerDependencies": {
+    "@stoprocent/noble": "*",
+    "@abandonware/noble": "*"
+  },
+  "peerDependenciesMeta": {
+    "@stoprocent/noble": {
+      "optional": true
+    },
+    "@abandonware/noble": {
+      "optional": true
+    }
+  }
+}
