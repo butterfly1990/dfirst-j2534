@@ -1,88 +1,88 @@
 # dfirst-j2534
 
-English: [README.en.md](README.en.md) · [PROTOCOL.en.md](PROTOCOL.en.md)
+Chinese: [README.zh.md](README.zh.md)
 
-面向 **QX DFirst** 设备的 Node **J2534 DIY SDK**（npm：`dfirst-j2534`，类名 `DFirstJ2534`）。接口按 DFirst 固件命令字自研封装，**不是**通用 OBD / ELM327 库。
+A **DIY Node J2534 SDK** for **QX DFirst** devices (npm: `dfirst-j2534`, class `DFirstJ2534`). The API wraps DFirst firmware command words — it is **not** a generic OBD / ELM327 library.
 
-## 适用范围与主机链路
+## Scope & host link
 
-| 机型 | BLE | LAN（有线 e0 / Wi‑Fi w0） |
-|------|-----|---------------------------|
-| **QX-A** 系列（A0–A6） | ✅ | — |
-| **QX Slink**（S0 / S1 / **S2**） | ✅ | ✅ |
-| **ELM327** 及同类 AT 指令适配器 | ❌ 暂不支持 | ❌ |
+| Device family | BLE | LAN (Ethernet e0 / Wi‑Fi w0) |
+|---------------|-----|------------------------------|
+| **QX-A** series (A0–A6) | ✅ | — |
+| **QX Slink** (S0 / S1 / **S2**) | ✅ | ✅ |
+| **ELM327** and similar AT-command adapters | ❌ not supported | ❌ |
 
-**别名（文档 / 产品名）：**
+**Aliases (docs / product names):**
 
-| 名称 | 含义 |
-|------|------|
-| **QXS2** | **QX Slink WiFi**（Slink 系列；亦可 BLE） |
-| **ETH**（ProtocolID `0xFD`） | **DoIP** 物理以太网承载；其上逻辑通道常用 **ISO13400**（DoIP） |
+| Name | Meaning |
+|------|---------|
+| **QXS2** | **QX Slink WiFi** (Slink family; BLE also works) |
+| **ETH** (ProtocolID `0xFD`) | **DoIP** physical Ethernet; logical channel is typically **ISO13400** (DoIP) |
 
-命令字与通道细节见 [PROTOCOL.md](PROTOCOL.md)。
+Wire format: [PROTOCOL.en.md](PROTOCOL.en.md).
 
-链路二选一：
+Two transports:
 
-| 传输 | 封装 | 连接 |
-|------|------|------|
+| Transport | Framing | Connect |
+|-----------|---------|---------|
 | LAN | RDComm TCP 19000 | `{ host: 'e0 IP' }` |
-| BLE | BLEDL（3 字节头 / 压缩 / CRC / ACK） | `{ transport: 'ble' }` |
+| BLE | BLEDL (3-byte header / compress / CRC / ACK) | `{ transport: 'ble' }` |
 
-J2534 编解码共用。BLE 上**没有** RDComm，GATT 解完就是命令字。
+J2534 encode/decode is shared. On BLE there is **no** RDComm — after GATT reassembly you get raw command bytes.
 
-## 各机型支持的协议
+## Protocols by model
 
-主机链路：**QX-A 仅 BLE**；**QX Slink（S0/S1/S2）支持 BLE + LAN**。下列为各机可 CONNECT 的物理协议，以及其上可开的逻辑协议（与固件 / 测试页一致）。CAN-FD 表示该机 CAN 类物理支持 FD 数据相位（`SET_CONFIG`），不是单独 ProtocolID。
+Host link: **QX-A = BLE only**; **QX Slink (S0/S1/S2) = BLE + LAN**. Below is what each model can `CONNECT` (physical) and which logical protocols open on top (same as firmware / test UI). CAN-FD means FD data-phase via `SET_CONFIG` on CAN-class phys — not a separate ProtocolID.
 
 ### QX-A0 / QX-A1
-- 主机：BLE
-- 物理：CAN
-- 逻辑（在 CAN 上）：ISO15765、ISO15765 过滤通道、TP20、TP16
+- Host: BLE
+- Physical: CAN
+- Logical (on CAN): ISO15765, ISO15765 filter, TP20, TP16
 
 ### QX-A2
-- 主机：BLE
-- 物理：CAN、MSCAN、ETH（DoIP）
-- 逻辑：在 CAN / MSCAN 上 → ISO15765、ISO15765 过滤通道、TP20、TP16；在 ETH（DoIP）上 → ISO13400（DoIP）、ETH_BMW、ETH_PASSTHRU
+- Host: BLE
+- Physical: CAN, MSCAN, ETH (DoIP)
+- Logical: on CAN / MSCAN → ISO15765, ISO15765 filter, TP20, TP16; on ETH (DoIP) → ISO13400 (DoIP), ETH_BMW, ETH_PASSTHRU
 
 ### QX-A3
-- 主机：BLE
-- 物理：CAN、MSCAN
-- 逻辑（在 CAN / MSCAN 上）：ISO15765、ISO15765 过滤通道、TP20、TP16
+- Host: BLE
+- Physical: CAN, MSCAN
+- Logical (on CAN / MSCAN): ISO15765, ISO15765 filter, TP20, TP16
 
 ### QX-A4
-- 主机：BLE
-- 物理：CAN、MSCAN、SWCAN、ETH（DoIP）；CAN 类支持 CAN-FD
-- 逻辑：在 CAN / MSCAN / SWCAN 上 → ISO15765、ISO15765 过滤通道、TP20、TP16；在 ETH（DoIP）上 → ISO13400（DoIP）、ETH_BMW、ETH_PASSTHRU
+- Host: BLE
+- Physical: CAN, MSCAN, SWCAN, ETH (DoIP); CAN-class supports CAN-FD
+- Logical: on CAN / MSCAN / SWCAN → ISO15765, ISO15765 filter, TP20, TP16; on ETH (DoIP) → ISO13400 (DoIP), ETH_BMW, ETH_PASSTHRU
 
 ### QX-A5 / QX-A6
-- 主机：BLE
-- 物理：CAN、MSCAN、LSCAN、CAN1/9、CAN12/13、ISO14230、ISO9141、J1850VPW、J1850PWM；CAN 类支持 CAN-FD
-- 逻辑：在 CAN / MSCAN / LSCAN / CAN1/9 / CAN12/13 上 → ISO15765、ISO15765 过滤通道、TP20、TP16；K 线 / J1850 无逻辑通道（物理上直接收发）
+- Host: BLE
+- Physical: CAN, MSCAN, LSCAN, CAN1/9, CAN12/13, ISO14230, ISO9141, J1850VPW, J1850PWM; CAN-class supports CAN-FD
+- Logical: on CAN / MSCAN / LSCAN / CAN1/9 / CAN12/13 → ISO15765, ISO15765 filter, TP20, TP16; K-line / J1850 have no logical channel (TX/RX on physical)
 
 ### QXS0
-- 主机：BLE、LAN
-- 物理：CAN、MSCAN、SWCAN、LSCAN、CAN12/13、ETH（DoIP）、ISO14230、ISO9141；CAN 类支持 CAN-FD
-- 逻辑：在 CAN 类上 → ISO15765、ISO15765 过滤通道、TP20、TP16；在 ETH（DoIP）上 → ISO13400（DoIP）、ETH_BMW、ETH_PASSTHRU；K 线无逻辑通道
+- Host: BLE, LAN
+- Physical: CAN, MSCAN, SWCAN, LSCAN, CAN12/13, ETH (DoIP), ISO14230, ISO9141; CAN-class supports CAN-FD
+- Logical: on CAN-class → ISO15765, ISO15765 filter, TP20, TP16; on ETH (DoIP) → ISO13400 (DoIP), ETH_BMW, ETH_PASSTHRU; K-line has no logical channel
 
 ### QXS1
-- 主机：BLE、LAN；可 BLE 配 Wi‑Fi STA 后切 LAN
-- 物理：CAN、MSCAN、SWCAN、LSCAN、CAN12/13、ETH（DoIP）、ISO14230、ISO9141、J1850VPW、J1850PWM；CAN 类支持 CAN-FD
-- 逻辑：在 CAN 类上 → ISO15765、ISO15765 过滤通道、TP20、TP16；在 ETH（DoIP）上 → ISO13400（DoIP）、ETH_BMW、ETH_PASSTHRU；K 线 / J1850 无逻辑通道
+- Host: BLE, LAN; Wi‑Fi STA can be provisioned over BLE then use LAN
+- Physical: CAN, MSCAN, SWCAN, LSCAN, CAN12/13, ETH (DoIP), ISO14230, ISO9141, J1850VPW, J1850PWM; CAN-class supports CAN-FD
+- Logical: on CAN-class → ISO15765, ISO15765 filter, TP20, TP16; on ETH (DoIP) → ISO13400 (DoIP), ETH_BMW, ETH_PASSTHRU; K-line / J1850 have no logical channel
 
-### QXS2（QX Slink WiFi）
-- 主机：BLE、LAN；可 BLE 配 Wi‑Fi STA 后切 LAN
-- 物理：CAN、MSCAN、SWCAN、LSCAN、CAN12/13、ETH（DoIP）、ISO14230、ISO9141、J1850VPW、J1850PWM；CAN 类支持 CAN-FD
-- 逻辑：在 CAN 类上 → ISO15765、ISO15765 过滤通道、TP20、TP16；在 ETH（DoIP）上 → ISO13400（DoIP）、ETH_BMW、ETH_PASSTHRU；K 线 / J1850 无逻辑通道
+### QXS2 (QX Slink WiFi)
+- Host: BLE, LAN; Wi‑Fi STA can be provisioned over BLE then use LAN
+- Physical: CAN, MSCAN, SWCAN, LSCAN, CAN12/13, ETH (DoIP), ISO14230, ISO9141, J1850VPW, J1850PWM; CAN-class supports CAN-FD
+- Logical: on CAN-class → ISO15765, ISO15765 filter, TP20, TP16; on ETH (DoIP) → ISO13400 (DoIP), ETH_BMW, ETH_PASSTHRU; K-line / J1850 have no logical channel
 
-## 安装
+## Install
 
 ```bash
 npm i dfirst-j2534
-# BLE（可选）：npm i @stoprocent/noble   # Windows
-#             npm i @abandonware/noble  # Linux/macOS
+# BLE (optional): npm i @stoprocent/noble   # Windows
+#                 npm i @abandonware/noble  # Linux/macOS
 ```
 
-源码目录开发：
+From the source tree:
 
 ```bash
 cd Tools/node-DFirstJ2534
@@ -93,31 +93,39 @@ npm install
 const { DFirstJ2534 } = require('dfirst-j2534')
 ```
 
-## 连接
+## Connect
 
-设备在 **e0** 和 **w0** 上发 DNS-SD：`QX{PSN}._rdcomm._tcp.local`，端口 **19000**，主机名 `QX{PSN}.local`。不需要装 Apple Bonjour；SDK 直接发 mDNS 组播查询。已知 PSN 时也可 `scanLan({ name: 'QXS226…' })` 查 A 记录。仍可手写 `{ host: '192.168.1.50' }`。
+LAN:
 
-BLE（广播名 `QX` / `QX-A…`）。先装适配器：`npm i @stoprocent/noble`（Windows）或 `@abandonware/noble`。
+```js
+const found = await DFirstJ2534.scanLan({ timeout: 3000 })
+const device = new DFirstJ2534({ host: found[0].host })
+await device.connect()
+```
+
+Devices advertise DNS-SD on **e0** and **w0**: `QX{PSN}._rdcomm._tcp.local`, port **19000**, hostname `QX{PSN}.local`. Apple Bonjour is not required; the SDK sends mDNS queries. With a known PSN you can `scanLan({ name: 'QXS226…' })` for an A record, or pass `{ host: '192.168.1.50' }`.
+
+BLE (adv name `QX` / `QX-A…`). Install an adapter: `npm i @stoprocent/noble` (Windows) or `@abandonware/noble`.
 
 ```js
 const found = await DFirstJ2534.scanBle({ namePrefix: 'QX', timeout: 12000 })
-const device = new DFirstJ2534({ transport: 'ble' }) // 也可传 blecfg
+const device = new DFirstJ2534({ transport: 'ble' }) // optional blecfg
 await device.connect(found[0])
 ```
 
-| 机型 | J2534 | blecfg（可自动） | BLE 分包 |
-|------|-------|------------------|----------|
-| A0 / A1 / B0 | V1 | `FFE0-FFE1-FFE1-FFE1-14-20` | **JDY**（≤20B + 序号头） |
-| A2 / A3 / A4 | V1 | `FFE1-FFE3-FFE1-FFE2-200-D4` | MTU−12 切片（无序号头） |
-| A5 / A6 | V2 | `FFE1-FFE3-FFE1-FFE2-2000-D4` | 同上 |
-| C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | 同上 |
-| S0 / S1 / S2 | V2 | （默认 A002 配置） | ESP32 AT |
+| Model | J2534 | blecfg (auto) | BLE chunking |
+|-------|-------|---------------|--------------|
+| A0 / A1 / B0 | V1 | `FFE0-FFE1-FFE1-FFE1-14-20` | **JDY** (≤20B + seq header) |
+| A2 / A3 / A4 | V1 | `FFE1-FFE3-FFE1-FFE2-200-D4` | MTU−12 slices (no seq header) |
+| A5 / A6 | V2 | `FFE1-FFE3-FFE1-FFE2-2000-D4` | same |
+| C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | same |
+| S0 / S1 / S2 | V2 | (default A002 profile) | ESP32 GATT |
 
-GATT 默认按上表/`PROFILES` 试 UUID。对不上可手动 `blecfg`。
+GATT tries the table / `PROFILES` UUIDs. Override with manual `blecfg` if needed.
 
-`device.j2534.*` 与传输无关。
+`device.j2534.*` is transport-agnostic.
 
-QXS1 / QXS2 可用 BLE 配 WiFi（ESP32 STA）：
+QXS1 / QXS2 can provision Wi‑Fi over BLE (ESP32 STA):
 
 ```js
 const aps = await device.wifiScan()           // CUSTOM_FEATURE 0x18
@@ -126,11 +134,11 @@ await device.wifiConnect('MyAP', 'password')  // 0x16
 await device.wifiDisconnect()                 // 0x17
 ```
 
-连上后设备在 **w0** 发 `_rdcomm._tcp`，可切 LAN。
+After join, the device advertises `_rdcomm._tcp` on **w0** — you can switch to LAN.
 
-## 协议接口 `device.j2534`
+## Protocol API `device.j2534`
 
-和命令字表一一对应，返回 `{ error, ... }`：
+Maps 1:1 to command IDs; returns `{ error, ... }`:
 
 ```js
 const {
@@ -174,58 +182,58 @@ await device.j2534.disconnect(canId)
 await device.j2534.close()
 ```
 
-| 方法 | 命令字 | 请求参数 | 应答 |
-|------|--------|----------|------|
-| `open` | `0x01` | 无 | `{ error, version }` |
-| `close` | `0x02` | 无 | `{ error }` |
+| Method | Cmd | Request | Response |
+|--------|-----|---------|----------|
+| `open` | `0x01` | none | `{ error, version }` |
+| `close` | `0x02` | none | `{ error }` |
 | `connect` | `0x03` | `connectFlags`, `protocolId`, `baudRate`, `pinSelect` | `{ error, channelId }` |
 | `disconnect` | `0x04` | `channelId` | `{ error, channelId }` |
-| `readMsg` | `0x05` | `{ msgNum=8, timeout=1000 }` | `{ error, messages[] }` 每条含 `rxStatus`, `data`, `extraDataIndex` |
+| `readMsg` | `0x05` | `{ msgNum=8, timeout=1000 }` | `{ error, messages[] }` each: `rxStatus`, `data`, `extraDataIndex` |
 | `writeMsg` | `0x06` | `[{ handle, txFlags, data }]` | `{ error, msgNum }` |
 | `startPeriodicMsg` | `0x07` | `{ interval, handle, txFlags, data }` | `{ error, msgId }` |
 | `stopPeriodicMsg` | `0x08` | `msgId` | `{ error }` |
 | `startMsgFilter` | `0x09` | `{ type, localTxFlags, remoteTxFlags, mask, pattern, exp, argument\|flowControl }` | `{ error, id: filterId }` |
 | `stopMsgFilter` | `0x0A` | `filterId` | `{ error }` |
-| `readVersion` | `0x0C` | 无 | `{ error, version }` |
+| `readVersion` | `0x0C` | none | `{ error, version }` |
 | `ioctl` | `0x0D` | `(channelId, ioctlId, inputBuf)` | `{ error, output }` |
-| `logicalConnect` | `0x0E` | 见下表 | `{ error, channelId, logicalChannelId }` |
+| `logicalConnect` | `0x0E` | see table below | `{ error, channelId, logicalChannelId }` |
 | `logicalDisconnect` | `0x0F` | `channelId` | `{ error }` |
 | `customFeature` | `0x10` | `(featureId, inputBuf)` | `{ error, output? }` |
-| `exec` | 任意 | 已编码 Buffer | `{ error, raw }` |
+| `exec` | any | pre-encoded Buffer | `{ error, raw }` |
 
-### `connect` / `logicalConnect` 参数
+### `connect` / `logicalConnect` parameters
 
-| 参数 | CONNECT（物理） | LOGICALCONNECT |
-|------|-----------------|----------------|
+| Param | CONNECT (physical) | LOGICALCONNECT |
+|-------|--------------------|----------------|
 | `protocolId` | CAN=5, ETH=0xFD, ISO9141=3… | ISO15765=0x200, TP20=0x300, ISO13400=0x400… |
-| `connectFlags` | CAN 常用 `CAN_ID_BOTH`；ETH 见 DHCP/AUTO_IP | 点对点 0 或 MINI；过滤加 `ISO15765_FILTER` |
-| `baudRate` | CAN 500000；K 线 10400 | （继承物理） |
-| `pinSelect` | `pinSelect(6,14)`→`0x060E`；0=默认 | — |
-| `localTxFlags` / `remoteTxFlags` | — | 填充/混合/29 位；ETH 时由 IP/Port 占用 |
-| `localAddress` / `remoteAddress` | — | 5 字节地址；或 SDK `canId5`/`addr5` |
-| `remoteIP` / `remotePort` / `localPort` | — | 仅 ETH 逻辑 |
+| `connectFlags` | CAN often `CAN_ID_BOTH`; ETH DHCP/AUTO_IP | point-to-point 0 or MINI; filter → `ISO15765_FILTER` |
+| `baudRate` | CAN 500000; K-line 10400 | (inherits physical) |
+| `pinSelect` | `pinSelect(6,14)`→`0x060E`; 0=default | — |
+| `localTxFlags` / `remoteTxFlags` | — | pad / mixed / 29-bit; ETH reuses for IP/port |
+| `localAddress` / `remoteAddress` | — | 5-byte addr; or `canId5` / `addr5` |
+| `remoteIP` / `remotePort` / `localPort` | — | ETH logical only |
 
-### `readMsg` / `writeMsg` 要点
+### `readMsg` / `writeMsg`
 
-- **读**：`timeout` 为毫秒；`TIMEOUT`/`BUFFER_EMPTY` 时 `messages` 仍可能非空。跳过 `TX_*` 与空 `START_OF_MESSAGE`，取带 UDS 的帧。
-- **写**：ISO15765 `data` = `canId4(txId)[+1 字节 EA] + UDS`；`txFlags` 与逻辑通道 Remote 一致（填充/混合）。
+- **Read**: `timeout` in ms; on `TIMEOUT` / `BUFFER_EMPTY`, `messages` may still be non-empty. Skip `TX_*` and empty `START_OF_MESSAGE`; take indications that carry UDS.
+- **Write**: ISO15765 `data` = `canId4(txId)[+1 EA] + UDS`; `txFlags` should match logical Remote (pad / mixed).
 
-### `startMsgFilter` 要点
+### `startMsgFilter`
 
-| `type` | 通道 | 说明 |
-|--------|------|------|
-| PASS=1 / BLOCK=2 | 物理 CAN | Mask/Pattern 验收或丢弃 |
-| FLOW_CONTROL=3 | ISO15765 逻辑 | Pattern=RX；`exp`+`argument` 算 TX |
+| `type` | Channel | Notes |
+|--------|---------|-------|
+| PASS=1 / BLOCK=2 | physical CAN | Mask/Pattern accept or drop |
+| FLOW_CONTROL=3 | ISO15765 logical | Pattern=RX; `exp`+`argument` compute TX |
 
-`argument` 与 `flowControl` 同义（5 字节）。Exp 见 PROTOCOL 过滤表。
+`argument` and `flowControl` are aliases (5 bytes). Exp table: [PROTOCOL.en.md](PROTOCOL.en.md).
 
-ISO15765 的 `data` 前 4 字节是大端 CAN ID，后面才是 UDS。参数细节与线格式见 [PROTOCOL.md](PROTOCOL.md)。
+ISO15765 `data` starts with a big-endian CAN ID (4 bytes), then UDS. Wire format details: [PROTOCOL.en.md](PROTOCOL.en.md).
 
-编解码也可直接用：`encode.connect(...)`、`decode.readMsg(buf)`。
+Codec helpers: `encode.connect(...)`, `decode.readMsg(buf)`.
 
-## 快捷方法
+## Shortcuts
 
-仍可用 `passThruConnect` 拿到带 `writeMsgs/readMsgs` 的通道对象，或：
+Or use `passThruConnect` channels with `writeMsgs` / `readMsgs`, or:
 
 ```js
 const { ConfigParam, TxFlag } = require('./src')
@@ -233,56 +241,56 @@ const { ConfigParam, TxFlag } = require('./src')
 const iso = await device.openIso15765({
   txId: 0x7E0,
   rxId: 0x7E8,
-  // 或按 LOGICALCONNECT：
+  // or LOGICALCONNECT-style:
   // connectFlags, localTxFlags, remoteTxFlags,
   // localAddress: '000007E8', remoteAddress: '000007E0',
-  remoteTxFlags: TxFlag.ISO15765_PAD, // 0x800040，高字节为填充值
-  padValue: 0x00                      // 并进 TxFlags 高字节；要 FF 则 padValue: 0xFF → 0xFF800040
+  remoteTxFlags: TxFlag.ISO15765_PAD, // 0x800040; pad byte in high byte
+  padValue: 0x00                      // merged into TxFlags; 0xFF → 0xFF800040
 })
 
-// 流控一般用默认；需要时再 SET_CONFIG（见 PROTOCOL.md）
+// Flow control usually left at defaults; optional SET_CONFIG (see PROTOCOL.en.md)
 await iso.setConfig([
-  { paramId: ConfigParam.ISO15765_BS, value: 0 },           // 收：我们回的 FC.BS，0=不限
-  { paramId: ConfigParam.ISO15765_STMIN, value: 0 },        // 收：我们回的 FC.STmin
-  { paramId: ConfigParam.ISO15765_BS_TX, value: 0xffff },   // 发：FFFF=跟对方 FC.BS
-  { paramId: ConfigParam.ISO15765_STMIN_TX, value: 0xffff },// 发：FFFF=跟对方 STmin
-  { paramId: ConfigParam.ISO15765_N_CR_MAX, value: 1000 }   // 等 CF 超时，十进制 ms
+  { paramId: ConfigParam.ISO15765_BS, value: 0 },           // RX: our FC.BS, 0=unlimited
+  { paramId: ConfigParam.ISO15765_STMIN, value: 0 },        // RX: our FC.STmin
+  { paramId: ConfigParam.ISO15765_BS_TX, value: 0xffff },   // TX: FFFF=follow peer FC.BS
+  { paramId: ConfigParam.ISO15765_STMIN_TX, value: 0xffff },// TX: FFFF=follow peer STmin
+  { paramId: ConfigParam.ISO15765_N_CR_MAX, value: 1000 }   // wait CF timeout, decimal ms
 ])
 
 const res = await iso.request('010C')
 await device.readPinVoltage(16)
 ```
 
-### `openIso15765` 常用参数
+### `openIso15765` common options
 
-| 参数 | 说明 |
-|------|------|
-| `txId` / `rxId` | 11/29 位 CAN ID；也可用 `localAddress` / `remoteAddress` 五字节串 |
-| `connectFlags` | 点对点 `0`；过滤通道加 `ISO15765_FILTER` |
-| `localTxFlags` / `remoteTxFlags` | 见下表；混合寻址加 `0x80`，填充加 `0x800040` |
-| `padValue` | `0`–`0xFF`，写入 Remote/Local TxFlags 高字节（有 `FRAME_PAD` 时） |
-| `physicalChannel` | 已打开的 CAN 通道，避免重复 CONNECT |
+| Option | Meaning |
+|--------|---------|
+| `txId` / `rxId` | 11/29-bit CAN IDs; or 5-byte `localAddress` / `remoteAddress` |
+| `connectFlags` | point-to-point `0`; filter channel add `ISO15765_FILTER` |
+| `localTxFlags` / `remoteTxFlags` | see table; mixed `0x80`, pad `0x800040` |
+| `padValue` | `0`–`0xFF` into TxFlags high byte when `FRAME_PAD` |
+| `physicalChannel` | existing CAN channel (skip second CONNECT) |
 
-| TxFlags | 含义 |
-|---------|------|
-| `0` | 无填充、无混合（短 DLC） |
-| `0x80` | 混合寻址 ADDR_TYPE |
-| `0x800040` | 填充到 8，填充字节=高 8 位（默认 00） |
-| `0xFF800040` | 填充字节 FF |
-| `0x8000C0` | 填充 + 混合 |
+| TxFlags | Meaning |
+|---------|---------|
+| `0` | no pad, no mixed (short DLC) |
+| `0x80` | mixed ADDR_TYPE |
+| `0x800040` | pad to 8; pad byte = high 8 bits (default 00) |
+| `0xFF800040` | pad byte FF |
+| `0x8000C0` | pad + mixed |
 
-| SET_CONFIG（逻辑通道） | 默认 | 含义 |
-|------------------------|------|------|
-| `ISO15765_BS` `0x1E` | 0 | 我们回 FC 的 BS |
-| `ISO15765_STMIN` `0x1F` | 0 | 我们回 FC 的 STmin |
-| `ISO15765_BS_TX` `0x22` | FFFF | 发多帧时跟/盖对方 BS |
-| `ISO15765_STMIN_TX` `0x23` | FFFF | 发多帧时跟/盖对方 STmin |
-| `ISO15765_N_CR_MAX` `0x2F` | 1000 | 等 CF 超时（ms，十进制） |
-| `ISO15765_PAD_VALUE` `0x2B` | 0 | 仅无 PaddingValid 时用 |
+| SET_CONFIG (logical) | Default | Meaning |
+|----------------------|---------|---------|
+| `ISO15765_BS` `0x1E` | 0 | BS in FC we send |
+| `ISO15765_STMIN` `0x1F` | 0 | STmin in FC we send |
+| `ISO15765_BS_TX` `0x22` | FFFF | TX: follow/override peer BS |
+| `ISO15765_STMIN_TX` `0x23` | FFFF | TX: follow/override peer STmin |
+| `ISO15765_N_CR_MAX` `0x2F` | 1000 | CF wait timeout (ms, **decimal**) |
+| `ISO15765_PAD_VALUE` `0x2B` | 0 | used only if PaddingValid clear |
 
-更细说明见 [PROTOCOL.md](PROTOCOL.md)「ISO15765 TxFlags / SET_CONFIG / 过滤表达式」。
+More detail: [PROTOCOL.en.md](PROTOCOL.en.md) (TxFlags / SET_CONFIG / filter Exp).
 
-## 例子
+## Examples
 
 ```bash
 node examples/protocol.js 192.168.1.50

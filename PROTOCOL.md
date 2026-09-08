@@ -1,6 +1,6 @@
 # DFirst J2534 开放协议
 
-English: [PROTOCOL.en.md](PROTOCOL.en.md) · [README.en.md](README.en.md)
+English: [PROTOCOL.en.md](PROTOCOL.en.md) · [README.md](README.md)
 
 DFirst VCI 对外这一套诊断协议（S2 / QX-A 等机型命令字相同）。链路两套：
 
@@ -84,7 +84,7 @@ Version 例：`V00.00.01,C0.00.01,C02322F00016,V00.00.00,V2`
 | 参数 | 格式 | 说明 |
 |------|------|------|
 | ConnectFlags | 4 字节 | 见下文「ConnectFlags」；CAN 常用 `CAN_ID_BOTH=0x800` |
-| ProtocolID | 4 字节 | 物理协议：CAN=`5`，ETH=`0xFD`，ISO9141=`3`，ISO14230=`4`，J1850… |
+| ProtocolID | 4 字节 | 物理协议：CAN=`5`，ETH DoIP=`0xFD`，ISO9141=`3`，ISO14230=`4`，J1850… |
 | BaudRate | 4 字节 | 波特率。CAN 常用 `500000`；K 线常用 `10400` |
 | PinSelect | 4 字节 | 高字节正极针脚、低字节负极。OBD CAN 6/14 → `0x060E`；`0`=设备默认针脚表 |
 
@@ -369,7 +369,7 @@ SDK：`device.upgradeFirmware(bin, { onProgress, reboot })`。
 | 3 / 4 | ISO9141 / ISO14230 | 物理；再 FIVE_BAUD / FAST_INIT |
 | 5 | CAN | 物理；再叠 ISO15765/TP 逻辑 |
 | 0xFC / 0xFE / 0xFF | LSCAN / MSCAN / SWCAN | 物理变体 |
-| 0xFD | ETH | 物理以太网 |
+| 0xFD | ETH DoIP | 物理以太网 / DoIP |
 | 0x200 | ISO15765 | 逻辑（点对点或 +FILTER） |
 | 0x201 | ISO15765_FILTER | V1 过滤逻辑协议号 |
 | 0x210 / 0x211 | ISO15765 FD / FD_FILTER | CAN FD |

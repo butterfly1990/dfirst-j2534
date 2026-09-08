@@ -2,7 +2,7 @@ Chinese: [PROTOCOL.md](PROTOCOL.md)
 
 # DFirst J2534 Open Protocol
 
-English: [PROTOCOL.en.md](PROTOCOL.en.md) · [README.en.md](README.en.md)
+English: [PROTOCOL.en.md](PROTOCOL.en.md) · [README.md](README.md)
 
 DFirst VCI public diagnostic protocol (same command IDs on S2 / QX-A). Two links:
 
@@ -86,7 +86,7 @@ Request:
 | Field | Format | Notes |
 |------|------|------|
 | ConnectFlags | 4 bytes | see ConnectFlags below; CAN often `CAN_ID_BOTH=0x800` |
-| ProtocolID | 4 bytes | physical: CAN=`5`, ETH=`0xFD`, ISO9141=`3`, ISO14230=`4`, J1850… |
+| ProtocolID | 4 bytes | physical: CAN=`5`, ETH DoIP=`0xFD`, ISO9141=`3`, ISO14230=`4`, J1850… |
 | BaudRate | 4 bytes | baud. CAN often `500000`; K-line often `10400` |
 | PinSelect | 4 bytes | high byte +pin, low byte −pin. OBD CAN 6/14 → `0x060E`; `0`=device default pin map |
 
@@ -371,7 +371,7 @@ SDK：`device.upgradeFirmware(bin, { onProgress, reboot })`。
 | 3 / 4 | ISO9141 / ISO14230 | physical; then FIVE_BAUD / FAST_INIT |
 | 5 | CAN | physical; then ISO15765/TP logical |
 | 0xFC / 0xFE / 0xFF | LSCAN / MSCAN / SWCAN | physical variants |
-| 0xFD | ETH | physical Ethernet |
+| 0xFD | ETH DoIP | physical Ethernet / DoIP |
 | 0x200 | ISO15765 | logical (P2P or +FILTER) |
 | 0x201 | ISO15765_FILTER | V1 filter logical protocol |
 | 0x210 / 0x211 | ISO15765 FD / FD_FILTER | CAN FD |

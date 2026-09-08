@@ -146,6 +146,8 @@ const Protocol = {
 const ProtocolName = Object.fromEntries(
   Object.entries(Protocol).map(([k, v]) => [v, k])
 )
+/** UI / 日志显示名；API 仍用 Protocol.ETH */
+ProtocolName[Protocol.ETH] = 'ETH DoIP'
 
 const ConnectFlag = {
   FULL_DUPLEX: 0x00000001,

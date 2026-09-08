@@ -1,3 +1,7 @@
+# 创建 GitHub Release 时发布到 npm（registry.npmjs.org）
+# 前置：仓库 Settings → Secrets → Actions 添加 npm_token
+# 且 package.json 的 version 要与 Release 标签一致（如 v0.1.0 → 0.1.0）
+
 name: Node.js Package
 
 on:
@@ -7,6 +11,8 @@ on:
 jobs:
   publish-npm:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -14,6 +20,7 @@ jobs:
           node-version: 20
           registry-url: https://registry.npmjs.org/
       - run: npm ci
+      # 本包暂无测试脚本；有 test 后再加: npm test
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.npm_token }}
