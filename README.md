@@ -4,7 +4,7 @@ Chinese: [README.zh.md](README.zh.md)
 
 A **DIY Node J2534 SDK** for **QX DFirst** devices (npm: `dfirst-j2534`, class `DFirstJ2534`). The API wraps DFirst firmware command words — it is **not** a generic OBD / ELM327 library.
 
-Companion Windows UI: [`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app) (npm: `dfirst-j2534-obdii-app`).
+Companion Windows UI: [`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app) (npm: `@butterflyer/dfirst-j2534-obdii-app`).
 
 ## Scope & host link
 
@@ -126,7 +126,7 @@ await device.connect(found[0])
 | C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | same |
 | S0 / S1 / S2 | V2 | (default A002 profile) | ESP32 GATT |
 
-GATT tries the table / `PROFILES` UUIDs. In your own code, pass constructor `blecfg` to override. Companion UI [`dfirst-j2534-obdii-app`](https://www.npmjs.com/package/dfirst-j2534-obdii-app) auto-fills `blecfg` by model (read-only).
+GATT tries the table / `PROFILES` UUIDs. In your own code, pass constructor `blecfg` to override. Companion UI [`@butterflyer/dfirst-j2534-obdii-app`](https://www.npmjs.com/package/@butterflyer/dfirst-j2534-obdii-app) auto-fills `blecfg` by model (read-only).
 
 `device.j2534.*` is transport-agnostic.
 

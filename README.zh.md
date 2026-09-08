@@ -4,7 +4,7 @@ English: [README.md](README.md) · [PROTOCOL.en.md](PROTOCOL.en.md) · [PROTOCOL
 
 面向 **QX DFirst** 设备的 Node **J2534 DIY SDK**（npm：`dfirst-j2534`，类名 `DFirstJ2534`）。接口按 DFirst 固件命令字自研封装，**不是**通用 OBD / ELM327 库。
 
-配套 Windows 测试界面：[`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app)（npm：`dfirst-j2534-obdii-app`）。
+配套 Windows 测试界面：[`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app)（npm：`@butterflyer/dfirst-j2534-obdii-app`）。
 
 ## 适用范围与主机链路
 
@@ -126,7 +126,7 @@ await device.connect(found[0])
 | C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | 同上 |
 | S0 / S1 / S2 | V2 | （默认 A002 配置） | ESP32 AT |
 
-GATT 默认按上表/`PROFILES` 试 UUID。自写代码可在构造时传 `blecfg` 覆盖。配套界面 [`dfirst-j2534-obdii-app`](https://www.npmjs.com/package/dfirst-j2534-obdii-app) 按机型自动填充只读 `blecfg`。
+GATT 默认按上表/`PROFILES` 试 UUID。自写代码可在构造时传 `blecfg` 覆盖。配套界面 [`@butterflyer/dfirst-j2534-obdii-app`](https://www.npmjs.com/package/@butterflyer/dfirst-j2534-obdii-app) 按机型自动填充只读 `blecfg`。
 
 `device.j2534.*` 与传输无关。
 
