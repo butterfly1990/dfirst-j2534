@@ -4,6 +4,8 @@ Chinese: [README.zh.md](README.zh.md)
 
 A **DIY Node J2534 SDK** for **QX DFirst** devices (npm: `dfirst-j2534`, class `DFirstJ2534`). The API wraps DFirst firmware command words — it is **not** a generic OBD / ELM327 library.
 
+Companion Windows UI: [`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app) (npm: `dfirst-j2534-obdii-app`).
+
 ## Scope & host link
 
 | Device family | BLE | LAN (Ethernet e0 / Wi‑Fi w0) |
@@ -17,7 +19,7 @@ A **DIY Node J2534 SDK** for **QX DFirst** devices (npm: `dfirst-j2534`, class `
 | Name | Meaning |
 |------|---------|
 | **QXS2** | **QX Slink WiFi** (Slink family; BLE also works) |
-| **ETH** (ProtocolID `0xFD`) | **DoIP** physical Ethernet; logical channel is typically **ISO13400** (DoIP) |
+| **ETH DoIP** (ProtocolID `0xFD`) | Physical Ethernet / DoIP carrier; logical channel is typically **ISO13400** (DoIP) |
 
 Wire format: [PROTOCOL.en.md](PROTOCOL.en.md).
 
@@ -32,7 +34,7 @@ J2534 encode/decode is shared. On BLE there is **no** RDComm — after GATT reas
 
 ## Protocols by model
 
-Host link: **QX-A = BLE only**; **QX Slink (S0/S1/S2) = BLE + LAN**. Below is what each model can `CONNECT` (physical) and which logical protocols open on top (same as firmware / test UI). CAN-FD means FD data-phase via `SET_CONFIG` on CAN-class phys — not a separate ProtocolID.
+Host link: **QX-A = BLE only**; **QX Slink (S0/S1/S2) = BLE + LAN**. Below is what each model can `CONNECT` (physical) and which logical protocols open on top (same as firmware / [`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app)). CAN-FD means FD data-phase via `SET_CONFIG` on CAN-class phys — not a separate ProtocolID.
 
 ### QX-A0 / QX-A1
 - Host: BLE
@@ -124,7 +126,7 @@ await device.connect(found[0])
 | C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | same |
 | S0 / S1 / S2 | V2 | (default A002 profile) | ESP32 GATT |
 
-GATT tries the table / `PROFILES` UUIDs. Override with manual `blecfg` if needed.
+GATT tries the table / `PROFILES` UUIDs. In your own code, pass constructor `blecfg` to override. Companion UI [`dfirst-j2534-obdii-app`](https://www.npmjs.com/package/dfirst-j2534-obdii-app) auto-fills `blecfg` by model (read-only).
 
 `device.j2534.*` is transport-agnostic.
 

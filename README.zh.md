@@ -4,6 +4,8 @@ English: [README.md](README.md) · [PROTOCOL.en.md](PROTOCOL.en.md) · [PROTOCOL
 
 面向 **QX DFirst** 设备的 Node **J2534 DIY SDK**（npm：`dfirst-j2534`，类名 `DFirstJ2534`）。接口按 DFirst 固件命令字自研封装，**不是**通用 OBD / ELM327 库。
 
+配套 Windows 测试界面：[`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app)（npm：`dfirst-j2534-obdii-app`）。
+
 ## 适用范围与主机链路
 
 | 机型 | BLE | LAN（有线 e0 / Wi‑Fi w0） |
@@ -32,7 +34,7 @@ J2534 编解码共用。BLE 上**没有** RDComm，GATT 解完就是命令字。
 
 ## 各机型支持的协议
 
-主机链路：**QX-A 仅 BLE**；**QX Slink（S0/S1/S2）支持 BLE + LAN**。下列为各机可 CONNECT 的物理协议，以及其上可开的逻辑协议（与固件 / 测试页一致）。CAN-FD 表示该机 CAN 类物理支持 FD 数据相位（`SET_CONFIG`），不是单独 ProtocolID。
+主机链路：**QX-A 仅 BLE**；**QX Slink（S0/S1/S2）支持 BLE + LAN**。下列为各机可 CONNECT 的物理协议，以及其上可开的逻辑协议（与固件 / [`dfirst-j2534-obdii-app`](https://github.com/butterfly1990/dfirst-j2534-obdii-app) 一致）。CAN-FD 表示该机 CAN 类物理支持 FD 数据相位（`SET_CONFIG`），不是单独 ProtocolID。
 
 ### QX-A0 / QX-A1
 - 主机：BLE
@@ -124,7 +126,7 @@ await device.connect(found[0])
 | C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | 同上 |
 | S0 / S1 / S2 | V2 | （默认 A002 配置） | ESP32 AT |
 
-GATT 默认按上表/`PROFILES` 试 UUID。对不上可手动 `blecfg`。
+GATT 默认按上表/`PROFILES` 试 UUID。自写代码可在构造时传 `blecfg` 覆盖。配套界面 [`dfirst-j2534-obdii-app`](https://www.npmjs.com/package/dfirst-j2534-obdii-app) 按机型自动填充只读 `blecfg`。
 
 `device.j2534.*` 与传输无关。
 
