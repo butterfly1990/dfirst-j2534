@@ -19,7 +19,7 @@ English: [README.md](README.md) · [PROTOCOL.en.md](PROTOCOL.en.md) · [PROTOCOL
 | 名称 | 含义 |
 |------|------|
 | **QXS2** | **QX Slink WiFi**（Slink 系列；亦可 BLE） |
-| **ETH**（ProtocolID `0xFD`） | **DoIP** 物理以太网承载；其上逻辑通道常用 **ISO13400**（DoIP） |
+| **ETH DoIP**（ProtocolID `0xFD`） | 物理以太网 / DoIP 承载；其上逻辑通道常用 **ISO13400**（DoIP） |
 
 命令字与通道细节见 [PROTOCOL.md](PROTOCOL.md)。
 
