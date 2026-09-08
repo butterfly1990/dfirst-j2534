@@ -1,6 +1,6 @@
 {
   "name": "dfirst-j2534",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DFirst J2534 PassThru SDK — LAN RDComm / BLE",
   "main": "src/index.js",
   "types": "index.d.ts",

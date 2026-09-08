@@ -82,10 +82,11 @@ npm i dfirst-j2534
 #                 npm i @abandonware/noble  # Linux/macOS
 ```
 
-From the source tree:
+From this repository:
 
 ```bash
-cd Tools/node-DFirstJ2534
+git clone https://github.com/butterfly1990/dfirst-j2534.git
+cd dfirst-j2534
 npm install
 ```
 
@@ -103,9 +104,11 @@ const device = new DFirstJ2534({ host: found[0].host })
 await device.connect()
 ```
 
-Devices advertise DNS-SD on **e0** and **w0**: `QX{PSN}._rdcomm._tcp.local`, port **19000**, hostname `QX{PSN}.local`. Apple Bonjour is not required; the SDK sends mDNS queries. With a known PSN you can `scanLan({ name: 'QXS226…' })` for an A record, or pass `{ host: '192.168.1.50' }`.
+Devices advertise DNS-SD on **e0** and **w0**: `QX{PSN}._rdcomm._tcp.local`, port **19000**, hostname `QX{PSN}.local`. With a known PSN you can `scanLan({ name: 'QXS226…' })` for an A record, or pass `{ host: '192.168.1.50' }`.
 
-BLE (adv name `QX` / `QX-A…`). Install an adapter: `npm i @stoprocent/noble` (Windows) or `@abandonware/noble`.
+On Windows / macOS with **Bonjour** (`dns-sd`), LAN scan prefers system DNS-SD (UDP 5353 is often taken; raw multicast easily misses devices). Without `dns-sd`, it falls back to `multicast-dns`.
+
+BLE (adv name `QX` / `QX-A…`). Install an adapter: `npm i @stoprocent/noble` (Windows) or `@abandonware/noble` (Linux/macOS).
 
 ```js
 const found = await DFirstJ2534.scanBle({ namePrefix: 'QX', timeout: 12000 })
@@ -115,7 +118,7 @@ await device.connect(found[0])
 
 | Model | J2534 | blecfg (auto) | BLE chunking |
 |-------|-------|---------------|--------------|
-| A0 / A1 / B0 | V1 | `FFE0-FFE1-FFE1-FFE1-14-20` | **JDY** (≤20B + seq header) |
+| A0 / A1 / B0 | V1 | `FFE0-FFE1-FFE1-FFE1-14-20` | **JDY** (≤20B + seq header; most PC stacks unsupported) |
 | A2 / A3 / A4 | V1 | `FFE1-FFE3-FFE1-FFE2-200-D4` | MTU−12 slices (no seq header) |
 | A5 / A6 | V2 | `FFE1-FFE3-FFE1-FFE2-2000-D4` | same |
 | C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | same |
@@ -292,7 +295,10 @@ More detail: [PROTOCOL.en.md](PROTOCOL.en.md) (TxFlags / SET_CONFIG / filter Exp
 
 ## Examples
 
+`examples/` is in this repo (not in the npm tarball). After clone:
+
 ```bash
+cd dfirst-j2534
 node examples/protocol.js 192.168.1.50
 node examples/passthru.js 192.168.1.50
 node examples/iso15765-uds.js 192.168.1.50

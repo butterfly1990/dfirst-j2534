@@ -82,10 +82,11 @@ npm i dfirst-j2534
 #             npm i @abandonware/noble  # Linux/macOS
 ```
 
-源码目录开发：
+从本仓库源码：
 
 ```bash
-cd Tools/node-DFirstJ2534
+git clone https://github.com/butterfly1990/dfirst-j2534.git
+cd dfirst-j2534
 npm install
 ```
 
@@ -95,9 +96,19 @@ const { DFirstJ2534 } = require('dfirst-j2534')
 
 ## 连接
 
-设备在 **e0** 和 **w0** 上发 DNS-SD：`QX{PSN}._rdcomm._tcp.local`，端口 **19000**，主机名 `QX{PSN}.local`。不需要装 Apple Bonjour；SDK 直接发 mDNS 组播查询。已知 PSN 时也可 `scanLan({ name: 'QXS226…' })` 查 A 记录。仍可手写 `{ host: '192.168.1.50' }`。
+设备在 **e0** 和 **w0** 上发 DNS-SD：`QX{PSN}._rdcomm._tcp.local`，端口 **19000**，主机名 `QX{PSN}.local`。已知 PSN 时也可 `scanLan({ name: 'QXS226…' })` 查 A 记录，或手写 `{ host: '192.168.1.50' }`。
 
-BLE（广播名 `QX` / `QX-A…`）。先装适配器：`npm i @stoprocent/noble`（Windows）或 `@abandonware/noble`。
+Windows / macOS 若已装 **Bonjour**（`dns-sd`），扫描优先走系统 DNS-SD（5353 常被占用，自建组播易漏设备）；没有 `dns-sd` 时再回退到 `multicast-dns`。
+
+LAN：
+
+```js
+const found = await DFirstJ2534.scanLan({ timeout: 3000 })
+const device = new DFirstJ2534({ host: found[0].host })
+await device.connect()
+```
+
+BLE（广播名 `QX` / `QX-A…`）。先装适配器：`npm i @stoprocent/noble`（Windows）或 `@abandonware/noble`（Linux/macOS）。
 
 ```js
 const found = await DFirstJ2534.scanBle({ namePrefix: 'QX', timeout: 12000 })
@@ -107,7 +118,7 @@ await device.connect(found[0])
 
 | 机型 | J2534 | blecfg（可自动） | BLE 分包 |
 |------|-------|------------------|----------|
-| A0 / A1 / B0 | V1 | `FFE0-FFE1-FFE1-FFE1-14-20` | **JDY**（≤20B + 序号头） |
+| A0 / A1 / B0 | V1 | `FFE0-FFE1-FFE1-FFE1-14-20` | **JDY**（≤20B + 序号头；多数 PC 蓝牙栈不支持） |
 | A2 / A3 / A4 | V1 | `FFE1-FFE3-FFE1-FFE2-200-D4` | MTU−12 切片（无序号头） |
 | A5 / A6 | V2 | `FFE1-FFE3-FFE1-FFE2-2000-D4` | 同上 |
 | C0 | V2 | `FEE0-FEE1-FEE2-FEE2-200-C0` | 同上 |
@@ -284,7 +295,10 @@ await device.readPinVoltage(16)
 
 ## 例子
 
+`examples/` 在本仓库中（**未**打进 npm 包）。clone 后：
+
 ```bash
+cd dfirst-j2534
 node examples/protocol.js 192.168.1.50
 node examples/passthru.js 192.168.1.50
 node examples/iso15765-uds.js 192.168.1.50
